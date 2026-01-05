@@ -59,7 +59,11 @@ const HERO_ITEMS = [
     }
 ];
 
-export function Hero() {
+export interface HeroProps {
+    showPlatformIcons?: boolean;
+}
+
+export function Hero({ showPlatformIcons = true }: HeroProps) {
     const [index, setIndex] = useState(0);
     const [fadeIn, setFadeIn] = useState(true);
 
@@ -117,13 +121,15 @@ export function Hero() {
                     Split the <span className="lowercase">{currentItem.buttonText}</span>
                 </button>
 
-                <div className="flex items-center gap-4 text-sm text-gray-500 font-medium pt-6">
-                    <span>Free for</span>
-                    <Apple className="w-5 h-5 text-gray-400" />
-                    <span>iPhone,</span>
-                    <Smartphone className="w-5 h-5 text-gray-400" />
-                    <span>Android, and web.</span>
-                </div>
+                {showPlatformIcons && (
+                    <div className="flex items-center gap-4 text-sm text-gray-500 font-medium pt-6">
+                        <span>Free for</span>
+                        <Apple className="w-5 h-5 text-gray-400" />
+                        <span>iPhone,</span>
+                        <Smartphone className="w-5 h-5 text-gray-400" />
+                        <span>Android, and web.</span>
+                    </div>
+                )}
             </div>
 
             {/* Right Column: Dynamic Image */}
