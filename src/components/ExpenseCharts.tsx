@@ -237,7 +237,7 @@ export function ClippedAreaChart() {
     return (
         <Card className="bg-white/95 backdrop-blur-xl border-white/20 shadow-2xl rounded-[2.5rem] overflow-hidden lg:col-span-2">
             <div className="grid grid-cols-1 lg:grid-cols-3">
-                <div className="lg:col-span-2 p-8 border-b lg:border-b-0 lg:border-r border-gray-100">
+                <div className="lg:col-span-2 p-5 md:p-8 border-b lg:border-b-0 lg:border-r border-gray-100">
                     <div className="flex justify-between items-center mb-8">
                         <div>
                             <div className="flex items-baseline gap-2">
@@ -308,7 +308,7 @@ export function ClippedAreaChart() {
                     </ChartContainer>
                 </div>
 
-                <div className="p-8 bg-gray-50/50">
+                <div className="p-5 md:p-8 bg-gray-50/50">
                     <h4 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6">Recent Activities</h4>
                     <div className="space-y-6">
                         {transactions.map((tx, i) => (
@@ -369,23 +369,23 @@ export function SettlementDetails() {
         <Card className="bg-white/95 backdrop-blur-xl border-white/20 shadow-2xl rounded-[2.5rem] overflow-hidden lg:col-span-2">
             <div className="grid grid-cols-1 md:grid-cols-4">
                 {/* Total Stats Panel */}
-                <div className="p-8 border-b md:border-b-0 md:border-r border-gray-100 bg-gray-50/50">
-                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6">Group Trip Expense</h4>
+                <div className="p-5 md:p-8 border-b md:border-b-0 md:border-r border-gray-100 bg-gray-50/50">
+                    <h4 className="text-xs md:text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6">Group Trip Expense</h4>
                     <div className="space-y-8">
                         <div>
                             <p className="text-sm font-bold text-gray-500 mb-1">Total Spilled</p>
                             <p className="text-4xl font-black text-black tracking-tight">$2,690.00</p>
                         </div>
                         <div className="pt-4 border-t border-gray-200">
-                            <h5 className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Booking History</h5>
+                            <h5 className="text-xs md:text-[9px] font-black text-gray-400 uppercase tracking-widest mb-3">Booking History</h5>
                             <div className="space-y-3">
                                 {transactions.map((t, i) => (
                                     <div key={i} className="flex flex-col gap-0.5">
-                                        <div className="flex justify-between items-center text-[11px] font-bold">
+                                        <div className="flex justify-between items-center text-sm md:text-[11px] font-bold">
                                             <span className="text-black">{t.by}</span>
                                             <span className="text-black">${t.amount}</span>
                                         </div>
-                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">{t.item}</span>
+                                        <span className="text-xs md:text-[9px] font-bold text-gray-400 uppercase tracking-tight">{t.item}</span>
                                     </div>
                                 ))}
                             </div>
@@ -394,11 +394,11 @@ export function SettlementDetails() {
                 </div>
 
                 {/* Return Summary / Who owes who */}
-                <div className="col-span-1 md:col-span-3 p-8">
+                <div className="col-span-1 md:col-span-3 p-5 md:p-8">
                     <div className="flex flex-col lg:flex-row gap-12">
                         {/* Summary List */}
                         <div className="flex-1">
-                            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6">Final Settlements</h4>
+                            <h4 className="text-xs md:text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6">Final Settlements</h4>
                             <div className="space-y-5">
                                 {settlements.map((s, i) => (
                                     <div key={i} className="flex items-center justify-between group">
@@ -415,7 +415,7 @@ export function SettlementDetails() {
                                                 <p className="text-sm font-black text-black">
                                                     {s.from} <span className="text-gray-400 mx-1 font-bold">pays</span> {s.to}
                                                 </p>
-                                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{s.desc}</p>
+                                                <p className="text-xs md:text-[10px] font-bold text-gray-400 uppercase tracking-wider">{s.desc}</p>
                                             </div>
                                         </div>
                                         <div className="text-right">
@@ -428,14 +428,14 @@ export function SettlementDetails() {
 
                         {/* Give vs Get Balance */}
                         <div className="w-full lg:w-72 border-t lg:border-t-0 lg:border-l border-gray-100 pt-8 lg:pt-0 lg:pl-10">
-                            <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6">Balances</h4>
+                            <h4 className="text-xs md:text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-6">Balances</h4>
                             <div className="space-y-6">
                                 {balances.map((p, i) => (
                                     <div key={i} className="space-y-3">
                                         <div className="flex justify-between items-end">
                                             <div>
                                                 <p className="text-xs font-black text-black">{p.name}</p>
-                                                <p className="text-[9px] font-bold text-gray-400 uppercase">Paid ${p.paid}</p>
+                                                <p className="text-xs md:text-[9px] font-bold text-gray-400 uppercase">Paid ${p.paid}</p>
                                             </div>
                                             <div className="text-right">
                                                 <p className={cn(
@@ -444,7 +444,7 @@ export function SettlementDetails() {
                                                 )}>
                                                     {p.status === "get" ? `+ $${p.amount}` : `- $${p.amount}`}
                                                 </p>
-                                                <p className="text-[8px] font-black uppercase text-gray-300">
+                                                <p className="text-[10px] md:text-[8px] font-black uppercase text-gray-300">
                                                     {p.status === "get" ? "to get back" : "to pay total"}
                                                 </p>
                                             </div>
