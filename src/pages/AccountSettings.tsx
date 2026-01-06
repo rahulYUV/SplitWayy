@@ -248,7 +248,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
     }
 
     return (
-        <div className="relative w-full min-h-screen bg-white font-sans overflow-hidden">
+        <div className="relative w-full font-sans">
             {/* Background Canvas Logic Decorator */}
             <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.6]">
                 <GridPattern

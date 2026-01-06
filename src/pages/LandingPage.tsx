@@ -33,7 +33,7 @@ export function LandingPage() {
 
             <main className="w-full flex flex-col items-center relative z-10">
                 {/* Full-screen wrapper to maintain original Hero centering */}
-                <div className="h-screen w-full flex items-center justify-center overflow-hidden">
+                <div className="min-h-screen w-full flex items-center justify-center">
                     <Hero />
                 </div>
                 <FooterSection />

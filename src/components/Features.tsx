@@ -171,7 +171,7 @@ export function Features() {
                             </motion.p>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-8 items-start max-w-6xl mx-auto pb-8">
+                        <div className="hidden md:grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-8 items-start max-w-6xl mx-auto pb-8">
                             <div className="flex flex-col items-center">
                                 <CapsuleSlider items={leftItems} />
                             </div>

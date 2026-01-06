@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import homeImg from "@/assets/images/Home.png";
 import flightImg from "@/assets/images/Flight.png";
 import lvImg from "@/assets/images/lv.png";
 import ridesImg from "@/assets/images/rides.png";
-import { Plane, Home, Heart, Asterisk, Apple, Smartphone, Car } from 'lucide-react';
+import currencyImg from "@/assets/images/currency.png";
+import { Plane, Home, Heart, Asterisk, Car } from 'lucide-react';
 
 const HERO_ITEMS = [
     {
@@ -59,11 +61,7 @@ const HERO_ITEMS = [
     }
 ];
 
-export interface HeroProps {
-    showPlatformIcons?: boolean;
-}
-
-export function Hero({ showPlatformIcons = true }: HeroProps) {
+export function Hero() {
     const [index, setIndex] = useState(0);
     const [fadeIn, setFadeIn] = useState(true);
 
@@ -81,9 +79,9 @@ export function Hero({ showPlatformIcons = true }: HeroProps) {
     const currentItem = HERO_ITEMS[index];
 
     return (
-        <div className="flex flex-col md:flex-row items-center justify-between max-w-6xl mx-auto px-6 py-8 mt-16 w-full z-10 relative">
+        <div className="flex flex-col md:flex-row items-center justify-between max-w-6xl mx-auto px-6 py-8 mt-32 md:mt-24 w-full z-10 relative">
             <div className="flex-1 space-y-6 text-left max-w-xl">
-                <h1 className="text-4xl md:text-5xl font-black text-black leading-tight tracking-tight">
+                <h1 className="text-3xl md:text-5xl font-black text-black leading-tight tracking-tight">
                     Less stress when sharing expenses <br />
                     <span
                         className={cn(
@@ -103,38 +101,51 @@ export function Hero({ showPlatformIcons = true }: HeroProps) {
                             key={i}
                             onClick={() => setIndex(i)}
                             className={cn(
-                                "w-8 h-8 cursor-pointer transition-all duration-300",
+                                "w-6 h-6 md:w-8 md:h-8 cursor-pointer transition-all duration-300",
                                 index === i ? `${item.activeColor} scale-110` : item.hoverColor
                             )}
                         />
                     ))}
                 </div>
 
-                <p className="text-lg text-gray-400 leading-relaxed max-w-lg">
+                <p className="text-base md:text-lg text-gray-400 leading-relaxed max-w-lg">
                     Keep track of your shared expenses and balances with housemates, trips, groups, friends, and family.
                 </p>
 
                 <button className={cn(
-                    "px-8 py-4 text-lg font-bold text-white rounded-xl shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95",
+                    "px-8 py-4 text-base md:text-lg font-bold text-white rounded-xl shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95",
                     currentItem.bgColor
                 )}>
                     Split the <span className="lowercase">{currentItem.buttonText}</span>
                 </button>
 
-                {showPlatformIcons && (
-                    <div className="flex items-center gap-4 text-sm text-gray-500 font-medium pt-6">
-                        <span>Free for</span>
-                        <Apple className="w-5 h-5 text-gray-400" />
-                        <span>iPhone,</span>
-                        <Smartphone className="w-5 h-5 text-gray-400" />
-                        <span>Android, and web.</span>
-                    </div>
-                )}
+                <div className="flex items-center gap-6 mt-32 transition-opacity duration-500">
+                    {[homeImg, flightImg, ridesImg, lvImg, currencyImg].map((img, i) => (
+                        <motion.img
+                            key={i}
+                            src={img}
+                            alt="icon"
+                            animate={{
+                                scale: [1, 1.2, 1],
+                                opacity: [0.7, 1, 0.7],
+                            }}
+                            transition={{
+                                duration: 2,
+                                repeat: Infinity,
+                                delay: i * 0.4, // Staggered delay for "one by one" effect
+                                ease: "easeInOut"
+                            }}
+                            className="w-20 h-20 md:w-24 md:h-24 object-contain drop-shadow-sm"
+                        />
+                    ))}
+                </div>
+
+
             </div>
 
             {/* Right Column: Dynamic Image */}
             <div className="flex-1 flex justify-center items-center mt-12 md:mt-0 relative">
-                <div className="relative w-full max-w-lg h-[400px] flex items-center justify-center overflow-hidden">
+                <div className="relative w-full max-w-lg h-[300px] md:h-[400px] flex items-center justify-center overflow-hidden">
                     {HERO_ITEMS.map((item, i) => (
                         <img
                             key={i}

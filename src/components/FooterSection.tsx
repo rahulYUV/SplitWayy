@@ -106,7 +106,7 @@ export function FooterSection() {
                             </motion.div>
 
                             <motion.div
-                                className="lg:col-span-2"
+                                className="hidden md:block lg:col-span-2"
                                 initial={{ opacity: 0, y: 30 }}
                                 whileInView={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.8, ease: "easeOut", delay: 0.3 }}
