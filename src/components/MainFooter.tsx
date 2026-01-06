@@ -40,7 +40,7 @@ const FOOTER_COLUMNS = [
 
 export function MainFooter() {
     return (
-        <footer className="relative w-full bg-white pt-20 pb-32 overflow-hidden border-t border-gray-100 mt-20">
+        <footer className="relative w-full bg-white pt-20 pb-32 overflow-hidden border-t border-gray-100">
             {/* Stationary Background Images */}
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
                 {FOOTER_IMAGES.map((img, i) => (

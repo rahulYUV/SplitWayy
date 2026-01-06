@@ -1,29 +1,23 @@
 import { User } from "firebase/auth";
-import { Hero } from "@/components/Hero";
+import { WorkspaceHero } from "@/components/WorkspaceHero";
 import { MainFooter } from "@/components/MainFooter";
-import { motion } from "framer-motion";
 
 interface DashboardLayoutProps {
     user: User;
+    showOnboarding?: boolean;
+    onOnboardingComplete?: () => void;
 }
 
-export function DashboardLayout({ user }: DashboardLayoutProps) {
+export function DashboardLayout({ user, showOnboarding, onOnboardingComplete }: DashboardLayoutProps) {
     return (
         <div className="w-full min-h-screen flex flex-col bg-white">
-            <main className="flex-1 w-full flex flex-col items-center relative">
-                {/* Hero section for members - simplified/personalized */}
-                <div className="h-[80vh] w-full flex items-center justify-center overflow-hidden">
-                    <Hero showPlatformIcons={false} />
-                </div>
-
-                {/* Dashboard content placeholder */}
-                {/* Dashboard content placeholder removed for now */}
-                <div className="w-full max-w-6xl px-6 py-12 relative z-20">
-                    {/* Content will be added here in Phase 3 */}
-                </div>
-
-                {/* Spacer to give content room above footer */}
-                <div className="h-24" />
+            <main className="flex-1 w-full flex flex-col relative">
+                {/* Hero section for members - Workspace Style */}
+                <WorkspaceHero
+                    user={user}
+                    showOnboarding={showOnboarding}
+                    onOnboardingComplete={onOnboardingComplete}
+                />
             </main>
 
             {/* Minimal Footer for Dashboard */}

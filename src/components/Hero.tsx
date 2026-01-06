@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import homeImg from "@/assets/images/Home.png";
 import flightImg from "@/assets/images/Flight.png";
 import lvImg from "@/assets/images/lv.png";
-import ridesImg from "@/assets/images/Flight.png";
+import ridesImg from "@/assets/images/rides.png";
 import { Plane, Home, Heart, Asterisk, Apple, Smartphone, Car } from 'lucide-react';
 
 const HERO_ITEMS = [

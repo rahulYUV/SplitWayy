@@ -15,6 +15,7 @@ interface SignUpModalProps {
     isOpen: boolean;
     onClose: () => void;
     initialMode?: 'signup' | 'login';
+    onSignUpSuccess?: () => void;
 }
 
 const CURRENCIES = [
@@ -25,7 +26,7 @@ const CURRENCIES = [
     { code: "JPY", symbol: "¥", name: "Japanese Yen" },
 ];
 
-export function SignUpModal({ isOpen, onClose, initialMode = 'signup' }: SignUpModalProps) {
+export function SignUpModal({ isOpen, onClose, initialMode = 'signup', onSignUpSuccess }: SignUpModalProps) {
     const [mode, setMode] = useState<'signup' | 'login'>(initialMode);
     const [fullName, setFullName] = useState("");
     const [email, setEmail] = useState("");
@@ -60,9 +61,12 @@ export function SignUpModal({ isOpen, onClose, initialMode = 'signup' }: SignUpM
                 user = userCredential.user;
             }
 
-            // Sync with Firestore
-            await syncUserProfile(user, { currency });
+            // Sync with Firestore in background
+            syncUserProfile(user, { currency });
 
+            if (mode === 'signup') {
+                onSignUpSuccess?.();
+            }
             onClose();
         } catch (err: any) {
             setError(err.message || `Failed to ${mode}`);
@@ -76,7 +80,8 @@ export function SignUpModal({ isOpen, onClose, initialMode = 'signup' }: SignUpM
         setError("");
         try {
             const result = await signInWithPopup(auth, googleProvider);
-            await syncUserProfile(result.user, { currency });
+            syncUserProfile(result.user, { currency });
+            onSignUpSuccess?.();
             onClose();
         } catch (err: any) {
             setError(err.message || "Google sign-in failed");

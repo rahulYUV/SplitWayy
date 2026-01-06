@@ -19,19 +19,19 @@ function App() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
         if (!localStorage.getItem('sessionStartTime')) {
           localStorage.setItem('sessionStartTime', new Date().toISOString());
         }
-        try {
-          await syncUserProfile(currentUser);
-        } catch (error) {
+        // Sync in background to avoid blocking initialization
+        syncUserProfile(currentUser).catch(error => {
           console.error("Auto-sync failed:", error);
-        }
+        });
       } else {
         localStorage.removeItem('sessionStartTime');
       }
@@ -83,6 +83,7 @@ function App() {
   }
 
   const openSignUp = () => {
+    setShowOnboarding(false);
     setModalMode('signup');
     setIsSignUpOpen(true);
   };
@@ -106,11 +107,20 @@ function App() {
           isOpen={isSignUpOpen}
           onClose={() => setIsSignUpOpen(false)}
           initialMode={modalMode}
+          onSignUpSuccess={() => setShowOnboarding(true)}
         />
 
         <Routes>
           <Route path="/" element={
-            user ? <DashboardLayout user={user} /> : <LandingPage />
+            user ? (
+              <DashboardLayout
+                user={user}
+                showOnboarding={showOnboarding}
+                onOnboardingComplete={() => setShowOnboarding(false)}
+              />
+            ) : (
+              <LandingPage />
+            )
           } />
 
           <Route path="/account" element={
