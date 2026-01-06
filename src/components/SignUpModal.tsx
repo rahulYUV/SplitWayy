@@ -108,7 +108,7 @@ export function SignUpModal({ isOpen, onClose, initialMode = 'signup', onSignUpS
                         initial={{ scale: 0.9, opacity: 0, y: 20 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                        className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[500px]"
+                        className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-auto md:min-h-[500px]"
                     >
                         <button
                             onClick={onClose}
@@ -118,14 +118,14 @@ export function SignUpModal({ isOpen, onClose, initialMode = 'signup', onSignUpS
                         </button>
 
                         {/* Left Side: Logo/Branding */}
-                        <div className="w-full md:w-2/5 bg-[#f8f9fa] flex items-center justify-center p-12 relative overflow-hidden">
+                        <div className="w-full md:w-2/5 md:h-auto h-20 bg-[#f8f9fa] flex items-center justify-center p-4 md:p-12 relative overflow-hidden">
                             <motion.div
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: 0.2 }}
                                 className="z-10"
                             >
-                                <img src={LogoImg} alt="SplitWayy" className="w-48 h-auto object-contain" />
+                                <img src={LogoImg} alt="SplitWayy" className="w-24 md:w-48 h-auto object-contain" />
                             </motion.div>
                             <div className="absolute top-0 left-0 w-full h-full opacity-[0.03] pointer-events-none">
                                 <div className="absolute -top-20 -left-20 w-80 h-80 bg-orange-500 rounded-full blur-[80px]" />
@@ -134,12 +134,12 @@ export function SignUpModal({ isOpen, onClose, initialMode = 'signup', onSignUpS
                         </div>
 
                         {/* Right Side: Form */}
-                        <form onSubmit={handleAuth} className="w-full md:w-3/5 p-12 md:p-16 flex flex-col justify-center">
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">
+                        <form onSubmit={handleAuth} className="w-full md:w-3/5 p-5 md:p-16 flex flex-col justify-center">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 md:mb-4">
                                 {mode === 'signup' ? "Introduce Yourself" : "Welcome Back"}
                             </span>
 
-                            <h2 className="text-3xl font-medium text-gray-900 mb-8 leading-tight">
+                            <h2 className="text-2xl md:text-3xl font-medium text-gray-900 mb-4 md:mb-8 leading-tight">
                                 {mode === 'signup' ? (
                                     <>Hi there! My name is
                                         <div className="mt-4">

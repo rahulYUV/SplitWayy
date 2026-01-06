@@ -7,9 +7,9 @@ import LVImg from "@/assets/images/lv.png";
 import LogoImg from "@/assets/images/LOGO.png";
 
 const FOOTER_IMAGES = [
-    { src: FlightImg, className: "-bottom-5 left-0 w-72" },
-    { src: HomeImg, className: "bottom-2 right-0 w-[35rem]" },
-    { src: LVImg, className: "bottom-6 left-1/2 -translate-x-1/2 w-56" },
+    { src: FlightImg, className: "hidden md:block -bottom-5 left-0 w-72" },
+    { src: HomeImg, className: "hidden md:block bottom-2 right-0 w-[35rem]" },
+    { src: LVImg, className: "hidden md:block bottom-6 left-1/2 -translate-x-1/2 w-56" },
 ];
 
 const FOOTER_COLUMNS = [
@@ -40,7 +40,7 @@ const FOOTER_COLUMNS = [
 
 export function MainFooter() {
     return (
-        <footer className="relative w-full bg-white pt-20 pb-32 overflow-hidden border-t border-gray-100">
+        <footer className="relative w-full bg-white pb-10 md:pb-32 overflow-hidden border-t border-gray-100">
             {/* Stationary Background Images */}
             <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
                 {FOOTER_IMAGES.map((img, i) => (

@@ -9,9 +9,11 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Menu } from "lucide-react";
 import { Link } from "react-router-dom";
+
 
 interface NavbarProps {
     className?: string;
@@ -19,9 +21,11 @@ interface NavbarProps {
     onLoginClick?: () => void;
     user?: User | null;
     profile?: any;
+    variant?: 'landing' | 'dashboard';
+    onMobileMenuClick?: () => void;
 }
 
-export function Navbar({ className, onSignUpClick, onLoginClick, user, profile }: NavbarProps) {
+export function Navbar({ className, onSignUpClick, onLoginClick, user, profile, variant = 'landing', onMobileMenuClick }: NavbarProps) {
     const handleLogout = async () => {
         try {
             await signOut(auth);
@@ -30,19 +34,35 @@ export function Navbar({ className, onSignUpClick, onLoginClick, user, profile }
         }
     };
 
+    const isDashboard = variant === 'dashboard';
+
     return (
-        <div className="fixed top-6 left-0 right-0 z-50 flex justify-center w-full">
+        <div className={cn(
+            "z-50 flex justify-center w-full transition-all duration-300",
+            isDashboard ? "relative pt-6 pb-2" : "fixed top-6 left-0 right-0"
+        )}>
             <nav
                 className={cn(
-                    "flex justify-between items-center px-8 py-3 transition-all duration-300",
-                    "w-[90%] md:w-[80%] rounded-full",
+                    "flex justify-between items-center px-4 md:px-8 py-3 transition-all duration-300",
+                    isDashboard ? "w-[calc(100%-3rem)] mx-6 rounded-[2rem]" : "w-[95%] md:w-[80%] rounded-full",
                     "bg-white/70 backdrop-blur-xl border border-gray-200 shadow-xl",
                     className
                 )}
             >
-                <div className="flex items-center gap-2">
-                    <img src={logo} alt="SplitWayy Logo" className="h-10 w-auto cursor-pointer" />
-                    <span className="text-xl font-black text-black tracking-tighter italic">SplitWayy</span>
+                <div className="flex items-center gap-4">
+                    {isDashboard && (
+                        <button
+                            onClick={onMobileMenuClick}
+                            className="lg:hidden flex hover:bg-gray-100 rounded-lg p-2 transition-colors"
+                        >
+                            <Menu className="w-5 h-5 text-gray-600" />
+                        </button>
+                    )}
+                    <img src={logo} alt="SplitWayy Logo" className="hidden md:block h-8 md:h-10 w-auto cursor-pointer" />
+                    {isDashboard && (
+                        <SidebarTrigger className="hidden lg:flex" />
+                    )}
+                    <span className="text-xl font-black text-black tracking-tighter italic hidden sm:block">SplitWayy</span>
                 </div>
 
                 <div className="flex items-center gap-6">

@@ -10,6 +10,15 @@ import { AccountSettings } from "@/pages/AccountSettings";
 import { DeactivateAccount } from "@/pages/DeactivateAccount";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
+// New Dashboard Sub-Pages
+import { DashboardHome } from "@/components/DashboardHome";
+import { RecentActivity } from "@/components/RecentActivity";
+import { AllExpenses } from "@/components/AllExpenses";
+import { GroupView } from "@/components/GroupView";
+import { FriendView } from "@/components/FriendView";
+import { Toaster } from "@/components/ui/sonner";
+import { ExpenseProvider } from "@/context/ExpenseContext";
+
 import { onSnapshot, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -28,7 +37,6 @@ function App() {
         if (!localStorage.getItem('sessionStartTime')) {
           localStorage.setItem('sessionStartTime', new Date().toISOString());
         }
-        // Sync in background to avoid blocking initialization
         syncUserProfile(currentUser).catch(error => {
           console.error("Auto-sync failed:", error);
         });
@@ -50,7 +58,6 @@ function App() {
       setProfile(data);
 
       if (data.isDeactivated) {
-        console.log("Account is deactivated. Logging out...");
         auth.signOut();
         return;
       }
@@ -58,11 +65,9 @@ function App() {
       const sessionRevokedAt = data.sessionRevokedAt?.toDate?.() || data.sessionRevokedAt;
       const sessionStartTimeStr = localStorage.getItem('sessionStartTime');
       if (!sessionStartTimeStr) return;
-
       const sessionStartTime = new Date(sessionStartTimeStr);
 
       if (sessionRevokedAt && new Date(sessionRevokedAt) > sessionStartTime) {
-        console.log("Session revoked globally. Logging out...");
         localStorage.removeItem('sessionStartTime');
         auth.signOut();
       }
@@ -93,63 +98,74 @@ function App() {
     setIsSignUpOpen(true);
   };
 
+  const firstName = profile?.displayName?.split(' ')[0] || user?.displayName?.split(' ')[0] || 'USER';
+
   return (
     <BrowserRouter>
-      <div className="relative flex min-h-screen w-full flex-col items-center bg-white text-black selection:bg-[#32dd9e]/20">
-        <Navbar
-          onSignUpClick={openSignUp}
-          onLoginClick={openLogin}
-          user={user}
-          profile={profile}
-        />
+      <ExpenseProvider>
+        <div className="relative flex min-h-screen w-full flex-col items-center bg-white text-black selection:bg-[#32dd9e]/20">
+          <Toaster />
+          {!user && (
+            <Navbar
+              onSignUpClick={openSignUp}
+              onLoginClick={openLogin}
+              user={user}
+              profile={profile}
+            />
+          )}
 
-        <SignUpModal
-          isOpen={isSignUpOpen}
-          onClose={() => setIsSignUpOpen(false)}
-          initialMode={modalMode}
-          onSignUpSuccess={() => setShowOnboarding(true)}
-        />
+          <SignUpModal
+            isOpen={isSignUpOpen}
+            onClose={() => setIsSignUpOpen(false)}
+            initialMode={modalMode}
+            onSignUpSuccess={() => setShowOnboarding(false)}
+          />
 
-        <Routes>
-          <Route path="/" element={
-            user ? (
-              <DashboardLayout
-                user={user}
-                showOnboarding={showOnboarding}
-                onOnboardingComplete={() => setShowOnboarding(false)}
-              />
-            ) : (
-              <LandingPage />
-            )
-          } />
+          <Routes>
+            <Route path="/" element={
+              user ? (
+                <DashboardLayout
+                  user={user}
+                  profile={profile}
+                  showOnboarding={showOnboarding}
+                  onOnboardingComplete={() => setShowOnboarding(false)}
+                />
+              ) : (
+                <LandingPage />
+              )
+            }>
+              {/* Sub-routes inside Dashboard Mat */}
+              <Route index element={<DashboardHome userName={firstName} />} />
+              <Route path="activity" element={<RecentActivity userName={firstName} />} />
+              <Route path="expenses" element={<AllExpenses userName={firstName} />} />
+              <Route path="group/:id" element={<GroupView userName={firstName} />} />
+              <Route path="friend/:id" element={<FriendView userName={firstName} />} />
+            </Route>
 
-          <Route path="/account" element={
-            user ? (
-              // Reuse DashboardLayout structure but replace Hero with AccountSettings
-              // Actually DashboardLayout currently hardcodes Hero. 
-              // We should make DashboardLayout accept children or create a new Layout wrapper.
-              // For now, let's just render the AccountPage with a top spacer for the fixed Navbar.
-              <div className="w-full pt-24 min-h-screen flex justify-center">
-                <AccountSettings user={user} />
-              </div>
-            ) : (
-              <Navigate to="/" replace />
-            )
-          } />
+            <Route path="/account" element={
+              user ? (
+                <DashboardLayout user={user} profile={profile}>
+                  <AccountSettings user={user} />
+                </DashboardLayout>
+              ) : (
+                <Navigate to="/" replace />
+              )
+            } />
 
-          <Route path="/deactivate" element={
-            user ? (
-              <div className="w-full pt-24 min-h-screen flex justify-center">
-                <DeactivateAccount />
-              </div>
-            ) : (
-              <Navigate to="/" replace />
-            )
-          } />
+            <Route path="/deactivate" element={
+              user ? (
+                <DashboardLayout user={user} profile={profile}>
+                  <DeactivateAccount />
+                </DashboardLayout>
+              ) : (
+                <Navigate to="/" replace />
+              )
+            } />
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </div>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </ExpenseProvider>
     </BrowserRouter>
   )
 }
