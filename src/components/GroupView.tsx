@@ -48,7 +48,7 @@ export function GroupView({ userName }: { userName: string }) {
         // Simple equal split logic for now as per app convention, or use splitDetails if available
         // Note: The context's getGroupExpenses returns expenses.
         // We assume equal split unless splitMethod differs.
-        const participantCount = expense.participants.length || 1;
+
         // Logic from previous implementation:
         if (expense.splitMethod === "equally") {
             // participants list usually DOES NOT include the payer unless specified?
@@ -71,7 +71,7 @@ export function GroupView({ userName }: { userName: string }) {
         } else {
             // Someone else paid, I owe my share
             // Only if I am in participants
-            const amIParticipant = expense.participants.some(p => p === "You" || p === userName || p.toLowerCase() === "you");
+
             // Previous logic just checked "allInvolved.includes('You')" which it forcefully added.
             // But if I am NEITHER payer NOR participant, do I owe?
             // "You" is always in allInvolved in previous logic?

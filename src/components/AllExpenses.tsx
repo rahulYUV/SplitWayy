@@ -17,7 +17,7 @@ export function AllExpenses({ userName }: { userName: string }) {
         );
     }, [expenses, searchQuery]);
 
-    const getGroupName = (groupId?: string) => {
+    const getGroupName = (groupId?: string | null) => {
         if (!groupId) return "Non-group";
         const group = groups.find(g => g.id === groupId);
         return group ? group.name : "Unknown Group";

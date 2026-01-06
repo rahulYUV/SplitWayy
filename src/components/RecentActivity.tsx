@@ -12,7 +12,7 @@ export function RecentActivity({ userName }: { userName: string }) {
     const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null);
 
     // Derived state for reactivity
-    const selectedExpense = expenses.find(e => e.id === selectedExpenseId) || null;
+
 
     // Limit to most recent 15 activities
     const recentExpenses = expenses.slice(0, 15);
