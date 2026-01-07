@@ -2,12 +2,13 @@ import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Check, LayoutList, PieChart as PieChartIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
+
 import CurrencyRupeeIcon from "@/components/ui/icons/currency-rupee-icon";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { useExpenses } from "@/context/ExpenseContext";
 import { cn } from "@/lib/utils";
 import { AddExpenseModal } from "@/components/AddExpenseModal";
+import { AnalyticsView } from "@/components/AnalyticsView";
 
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -36,7 +37,7 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
 
         // Get unique names (case-insensitive)
         const namesInExpenses = expenses.flatMap(e => e.participants).map(n => n.trim());
-        const friendNames = friends.map(f => f.displayName.trim());
+        const friendNames = friends.map(f => f.displayName?.trim() || "Unknown");
 
         // Deduplicate by lowercase name
         const uniqueNamesMap = new Map<string, string>();
@@ -78,10 +79,8 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
 
     const totalBalance = totalOwed - totalOwe;
 
-    const chartData = useMemo(() => [
-        ...owedData.map(d => ({ name: d.name, value: d.amount, type: 'receivable', color: d.color })),
-        ...oweData.map(d => ({ name: d.name, value: d.amount, type: 'payable', color: d.color }))
-    ], [owedData, oweData]);
+    // Chart Data moved to Analytics View
+
 
     return (
         <div className="flex-1 flex flex-col min-h-0 min-w-0 font-sans w-full">
@@ -120,18 +119,18 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
 
             {/* 3. PRIMARY ACTION SECTION */}
             <div className="py-8 flex flex-col items-center justify-center gap-8 border-b border-white/5 bg-white/5 w-full">
-                <div className="flex flex-wrap items-center justify-center gap-6">
+                <div className="flex flex-row items-center justify-center gap-3 md:gap-6 w-full px-4 md:px-0">
                     <AddExpenseModal userName={userName}>
-                        <Button className="bg-[#ff6d2f] hover:bg-[#ff8552] text-white font-black uppercase italic px-8 py-7 rounded-2xl shadow-[0_12px_0_#9c3d14] active:shadow-none active:translate-y-[12px] transition-all border-4 border-white/10 flex items-center gap-4 text-lg group">
-                            <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
-                            Add an expense
+                        <Button className="flex-1 md:flex-none bg-[#ff6d2f] hover:bg-[#ff8552] text-white font-black uppercase italic px-4 py-5 md:px-8 md:py-7 rounded-2xl shadow-[0_6px_0_#9c3d14] md:shadow-[0_12px_0_#9c3d14] active:shadow-none active:translate-y-[6px] md:active:translate-y-[12px] transition-all border-4 border-white/10 flex items-center justify-center gap-2 md:gap-4 text-xs md:text-lg group w-full md:w-auto h-auto">
+                            <Plus className="w-4 h-4 md:w-5 md:h-5 group-hover:rotate-90 transition-transform" />
+                            <span className="whitespace-nowrap">Add Expense</span>
                         </Button>
                     </AddExpenseModal>
                     <Button
                         onClick={() => setIsSelectionOpen(true)}
-                        className="bg-[#32dd9e] hover:bg-[#45e6a9] text-white font-black uppercase italic px-8 py-7 rounded-2xl shadow-[0_12px_0_#1a8c63] active:shadow-none active:translate-y-[12px] transition-all border-4 border-white/10 flex items-center gap-4 text-lg group">
-                        <Check className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                        Settle up
+                        className="flex-1 md:flex-none bg-[#32dd9e] hover:bg-[#45e6a9] text-white font-black uppercase italic px-4 py-5 md:px-8 md:py-7 rounded-2xl shadow-[0_6px_0_#1a8c63] md:shadow-[0_12px_0_#1a8c63] active:shadow-none active:translate-y-[6px] md:active:translate-y-[12px] transition-all border-4 border-white/10 flex items-center justify-center gap-2 md:gap-4 text-xs md:text-lg group w-full md:w-auto h-auto">
+                        <Check className="w-4 h-4 md:w-5 md:h-5 group-hover:scale-110 transition-transform" />
+                        <span className="whitespace-nowrap">Settle Up</span>
                     </Button>
                 </div>
             </div>
@@ -139,8 +138,9 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
             {/* 4. MAIN CONTENT AREA */}
             <div className="flex-1 flex flex-col pt-8 relative w-full">
                 {/* Column Headers & Toggle */}
-                <div className="flex items-center justify-between px-12 pb-8">
-                    <div className="font-black text-black/20 uppercase italic tracking-[0.3em] text-[10px]">YOU OWE</div>
+                {/* Column Headers & Toggle */}
+                <div className="flex items-center justify-center md:justify-between px-4 md:px-12 pb-4 md:pb-8">
+                    <div className="hidden md:block font-black text-black/20 uppercase italic tracking-[0.3em] text-[10px]">YOU OWE</div>
 
                     <div className="flex items-center bg-gray-100 rounded-xl p-1 border border-gray-200 shadow-inner">
                         <button
@@ -161,11 +161,11 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
                                 }`}
                         >
                             <PieChartIcon className="w-3 h-3" />
-                            chart
+                            Analytics
                         </button>
                     </div>
 
-                    <div className="font-black text-black/20 uppercase italic tracking-[0.3em] text-[10px]">YOU ARE OWED</div>
+                    <div className="hidden md:block font-black text-black/20 uppercase italic tracking-[0.3em] text-[10px]">YOU ARE OWED</div>
                 </div>
 
                 <AnimatePresence mode="wait">
@@ -178,14 +178,14 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
                             className="grid grid-cols-1 md:grid-cols-2 flex-1 px-4 md:px-8 relative pb-20 overflow-y-auto"
                         >
                             {/* Left: You Owe */}
-                            <div className="px-4 flex flex-col items-start justify-start gap-4">
+                            <div className="px-4 flex flex-col items-center md:items-start justify-start gap-4">
                                 {oweData.length === 0 ? (
                                     <div className="text-white/10 font-black italic uppercase text-xs mt-10">You don't owe anything</div>
                                 ) : (
                                     oweData.map((person, i) => (
                                         <motion.div
                                             key={i}
-                                            className="bg-[#ff6d2f] text-white px-6 py-5 rounded-xl shadow-[0_10px_20px_rgba(0,0,0,0.3)] w-full max-w-[260px] flex items-center justify-between border-b-8 border-black/20"
+                                            className="bg-[#ff6d2f] text-white px-6 py-5 rounded-xl shadow-[0_10px_20px_rgba(0,0,0,0.3)] w-full md:max-w-[260px] flex items-center justify-between border-b-8 border-black/20"
                                         >
                                             <div className="flex flex-col text-left">
                                                 <span className="font-black uppercase italic tracking-tighter text-xl">{person.name}</span>
@@ -198,14 +198,14 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
                             </div>
 
                             {/* Right: You Are Owed */}
-                            <div className="px-4 flex flex-col items-end justify-start gap-4">
+                            <div className="px-4 flex flex-col items-center md:items-end justify-start gap-4">
                                 {owedData.length === 0 ? (
                                     <div className="text-white/10 font-black italic uppercase text-xs mt-10">Nobody owes you</div>
                                 ) : (
                                     owedData.map((person, i) => (
                                         <motion.div
                                             key={i}
-                                            className="bg-[#32dd9e] text-white px-6 py-4 rounded-xl shadow-[0_10px_20px_rgba(0,0,0,0.3)] w-full max-w-[260px] flex items-center justify-between border-b-8 border-black/20 focus-within:scale-[1.02] transition-transform"
+                                            className="bg-[#32dd9e] text-white px-6 py-4 rounded-xl shadow-[0_10px_20px_rgba(0,0,0,0.3)] w-full md:max-w-[260px] flex items-center justify-between border-b-8 border-black/20 focus-within:scale-[1.02] transition-transform"
                                         >
                                             <div className="flex flex-col text-left min-w-0 pr-2">
                                                 <span className="font-black uppercase italic tracking-tighter text-lg leading-tight break-all">{person.name}</span>
@@ -224,49 +224,7 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
                             animate={{ opacity: 1, scale: 1 }}
                             className="flex-1 flex flex-col items-center justify-center p-8 min-h-[400px] pb-20"
                         >
-                            {chartData.length === 0 ? (
-                                <div className="text-white/20 font-black italic uppercase">No data to display in chart</div>
-                            ) : (
-                                <div className="w-full h-full max-w-2xl relative">
-                                    <div className="absolute inset-0 bg-white/5 rounded-[2rem] border border-white/10 shadow-inner" />
-                                    <div className="relative z-10 w-full h-full p-8 flex flex-col items-center">
-                                        <div className="h-[280px] w-full">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <PieChart>
-                                                    <Pie
-                                                        data={chartData}
-                                                        cx="50%"
-                                                        cy="50%"
-                                                        innerRadius={60}
-                                                        outerRadius={90}
-                                                        paddingAngle={5}
-                                                        dataKey="value"
-                                                        stroke="none"
-                                                    >
-                                                        {chartData.map((entry, index) => (
-                                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                                        ))}
-                                                    </Pie>
-                                                    <RechartsTooltip
-                                                        contentStyle={{ backgroundColor: 'black', border: 'none', borderRadius: '12px', color: 'white' }}
-                                                        itemStyle={{ color: 'white' }}
-                                                    />
-                                                </PieChart>
-                                            </ResponsiveContainer>
-                                        </div>
-                                        <div className="flex gap-20 mt-8">
-                                            <div className="flex flex-col items-center">
-                                                <span className="text-[9px] font-black uppercase text-white/30 tracking-widest">Receivable</span>
-                                                <span className="text-xl font-black text-[#32dd9e] flex items-center gap-0.5"><CurrencyRupeeIcon size={16} color="#32dd9e" />{totalOwed.toLocaleString()}</span>
-                                            </div>
-                                            <div className="flex flex-col items-center">
-                                                <span className="text-[9px] font-black uppercase text-white/30 tracking-widest">Payable</span>
-                                                <span className="text-xl font-black text-[#ff6d2f] flex items-center gap-0.5"><CurrencyRupeeIcon size={16} color="#ff6d2f" />{totalOwe.toLocaleString()}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                            <AnalyticsView expenses={expenses} />
                         </motion.div>
                     )}
                 </AnimatePresence>

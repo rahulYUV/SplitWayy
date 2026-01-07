@@ -30,8 +30,8 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
 
     // Deduplicate friends by name (case-insensitive)
     const friendsFromContext = friends.map(f => ({
-        title: f.displayName,
-        url: `/friend/${f.displayName.toLowerCase().replace(/\s+/g, '-')}`
+        title: f.displayName || "Friend",
+        url: `/friend/${(f.displayName || "friend").toLowerCase().replace(/\s+/g, '-')}`
     }))
 
     const namesInExpenses = Array.from(new Set(

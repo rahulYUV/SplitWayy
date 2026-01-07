@@ -2,14 +2,11 @@
 
 import { cn } from "@/lib/utils";
 import FlightImg from "@/assets/images/Flight.png";
-import HomeImg from "@/assets/images/Home.png";
-import LVImg from "@/assets/images/lv.png";
+
 import LogoImg from "@/assets/images/LOGO.png";
 
 const FOOTER_IMAGES = [
     { src: FlightImg, className: "hidden md:block -bottom-5 left-0 w-72" },
-    { src: HomeImg, className: "hidden md:block bottom-2 right-0 w-[35rem]" },
-    { src: LVImg, className: "hidden md:block bottom-6 left-1/2 -translate-x-1/2 w-56" },
 ];
 
 const FOOTER_COLUMNS = [
@@ -75,18 +72,18 @@ export function MainFooter() {
             </div>
 
             <div className="max-w-7xl mx-auto px-6 relative z-10">
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
+                <div className="grid grid-cols-3 md:grid-cols-12 gap-4 md:gap-10 pt-8 md:pt-0">
                     {FOOTER_COLUMNS.map((col, i) => (
                         <div key={i} className={cn(
-                            "md:col-span-2",
-                            col.hasBorder && `border-r ${col.borderColor} pr-8`
+                            "col-span-1 md:col-span-2",
+                            col.hasBorder && "md:border-r md:pr-8 border-gray-200"
                         )}>
-                            <h4 className={cn("font-bold text-lg mb-6", col.color)}>{col.title}</h4>
-                            <ul className="space-y-3">
+                            <h4 className={cn("font-bold text-xs md:text-lg mb-3 md:mb-6 uppercase tracking-wider", col.color)}>{col.title}</h4>
+                            <ul className="space-y-1.5 md:space-y-3">
                                 {col.links.map((link) => (
                                     <li key={link.label}>
                                         <a href={link.href} className={cn(
-                                            "text-gray-500 text-[15px] transition-colors",
+                                            "text-gray-500 text-[10px] md:text-[15px] transition-colors hover:font-medium",
                                             col.hoverColor
                                         )}>
                                             {link.label}
@@ -98,7 +95,7 @@ export function MainFooter() {
                     ))}
 
                     {/* Column 4: Brand Text (Shifted slightly left) */}
-                    <div className="md:col-span-6 flex flex-col items-end justify-start pt-2 md:pr-12">
+                    <div className="col-span-3 md:col-span-6 flex flex-col items-center md:items-end justify-start pt-8 md:pt-2 md:pr-12 border-t md:border-t-0 border-gray-100 mt-4 md:mt-0">
                         <div className="text-right">
                             <p className="text-gray-500 text-sm font-medium italic">Made with :) in SplitWayy Labs</p>
                             <div className="flex items-center gap-4 justify-end mt-4">
