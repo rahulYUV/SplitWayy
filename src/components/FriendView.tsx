@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
+import { SettleUpModal } from "@/components/SettleUpModal";
+
 interface FriendViewProps {
     friendName?: string;
     userName: string;
@@ -28,6 +30,7 @@ export function FriendView({ friendName, userName }: FriendViewProps) {
     const { id } = useParams();
     const { getFriendBalance, friends, expenses } = useExpenses();
     const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null);
+    const [isSettleUpOpen, setIsSettleUpOpen] = useState(false);
 
     // Find the display name: either from props, or find in context based on the slug ID
     const friendFromContext = friends.find(f => f.displayName.toLowerCase().replace(/\s+/g, '-') === id);
@@ -43,8 +46,12 @@ export function FriendView({ friendName, userName }: FriendViewProps) {
     // Filter Expenses for this friend
     const friendExpenses = expenses.filter(item => {
         const involved = [item.paidBy, ...item.participants];
-        // Check exact match (ignoring case for safety, though app uses exact strings usually)
-        return involved.some(p => p.toLowerCase() === displayName.toLowerCase());
+        // Check exact match or substring match
+        return involved.some(p => {
+            const pLower = p.toLowerCase().trim();
+            const dLower = displayName.toLowerCase().trim();
+            return pLower === dLower || pLower.includes(dLower) || dLower.includes(pLower);
+        });
     }).sort((a, b) => {
         const dateA = a.date instanceof Date ? a.date.getTime() : new Date(a.date).getTime();
         const dateB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();
@@ -117,12 +124,14 @@ export function FriendView({ friendName, userName }: FriendViewProps) {
                     <div className="w-full max-w-md h-[1px] bg-gradient-to-r from-transparent via-gray-200 to-transparent my-4 relative z-10" />
 
                     {balance !== 0 && (
-                        <Button className={cn(
-                            "font-black uppercase italic px-12 py-8 rounded-2xl transition-all border-4 text-xl flex items-center gap-4 relative z-10",
-                            balance > 0
-                                ? "bg-[#32dd9e] hover:bg-[#45e6a9] text-white shadow-[0_10px_0_#1a8c63] border-white/10"
-                                : "bg-black hover:bg-gray-900 text-white shadow-[0_10px_0_#333] border-white/5 cancel-shadow"
-                        )}>
+                        <Button
+                            onClick={() => setIsSettleUpOpen(true)}
+                            className={cn(
+                                "font-black uppercase italic px-12 py-8 rounded-2xl transition-all border-4 text-xl flex items-center gap-4 relative z-10",
+                                balance > 0
+                                    ? "bg-[#32dd9e] hover:bg-[#45e6a9] text-white shadow-[0_10px_0_#1a8c63] border-white/10"
+                                    : "bg-black hover:bg-gray-900 text-white shadow-[0_10px_0_#333] border-white/5 cancel-shadow"
+                            )}>
                             Settle with {displayName.split(' ')[0]}
                         </Button>
                     )}
@@ -196,6 +205,14 @@ export function FriendView({ friendName, userName }: FriendViewProps) {
                 expenseId={selectedExpenseId}
                 isOpen={!!selectedExpenseId}
                 onClose={() => setSelectedExpenseId(null)}
+                userName={userName}
+            />
+
+            <SettleUpModal
+                isOpen={isSettleUpOpen}
+                onClose={() => setIsSettleUpOpen(false)}
+                friendName={displayName}
+                balance={balance}
                 userName={userName}
             />
         </div>

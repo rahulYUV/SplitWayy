@@ -51,7 +51,9 @@ interface CreateGroupModalProps {
 export function CreateGroupModal({ children }: CreateGroupModalProps) {
     const [open, setOpen] = useState(false)
     const [groupIcon, setGroupIcon] = useState<string | null>(null)
+    const [isLoading, setIsLoading] = useState(false)
     const { addGroup } = useExpenses()
+    // ... (rest of local state)
 
     const form = useForm<GroupFormValues>({
         resolver: zodResolver(groupSchema),
@@ -69,7 +71,8 @@ export function CreateGroupModal({ children }: CreateGroupModalProps) {
     })
 
     const onSubmit = async (values: GroupFormValues) => {
-        // Clean up empty emails - only include email if it has a value
+        setIsLoading(true)
+        // Clean up empty emails
         const cleanedMembers = values.members.map(m => {
             const member: any = { name: m.name };
             if (m.email && m.email.trim()) {
@@ -85,7 +88,6 @@ export function CreateGroupModal({ children }: CreateGroupModalProps) {
                 members: cleanedMembers,
             };
 
-            // Only add groupIcon if it exists
             if (values.groupIcon) {
                 groupData.groupIcon = values.groupIcon;
             }
@@ -100,10 +102,11 @@ export function CreateGroupModal({ children }: CreateGroupModalProps) {
             setGroupIcon(null)
         } catch (error) {
             console.error("Failed to create group:", error)
-            console.error("Group data:", { name: values.name, type: values.type, members: cleanedMembers })
             toast.error(
                 error instanceof Error ? error.message : "Failed to create group. Please try again."
             )
+        } finally {
+            setIsLoading(false)
         }
     }
 
@@ -210,7 +213,7 @@ export function CreateGroupModal({ children }: CreateGroupModalProps) {
                                                             <FormControl>
                                                                 <div className="relative">
                                                                     <Input
-                                                                        placeholder="Email address (optional)"
+                                                                        placeholder="Email (Optional)"
                                                                         className="h-12 bg-gray-50 border-none rounded-xl pl-10 text-xs font-bold focus:bg-white"
                                                                         {...field}
                                                                     />
@@ -333,11 +336,11 @@ export function CreateGroupModal({ children }: CreateGroupModalProps) {
                                     Cancel
                                 </Button>
                                 <Button
-                                    type="submit"
+                                    disabled={isLoading}
                                     className="h-14 flex-[2] bg-black hover:bg-black/90 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 group transition-all"
                                 >
-                                    Create Group Now
-                                    <Check className="w-4 h-4 group-hover:scale-125 transition-transform text-[#32dd9e]" />
+                                    {isLoading ? "Creating..." : "Create Group Now"}
+                                    {!isLoading && <Check className="w-4 h-4 group-hover:scale-125 transition-transform text-[#32dd9e]" />}
                                 </Button>
                             </div>
                         </form>

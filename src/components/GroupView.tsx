@@ -14,12 +14,16 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { SettleUpModal } from "./SettleUpModal";
 import { toast } from "sonner";
 
 export function GroupView({ userName }: { userName: string }) {
     const { id } = useParams();
-    const { groups, getGroupExpenses } = useExpenses();
+    const { groups, getGroupExpenses, getFriendBalance } = useExpenses();
     const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null);
+    const [isSelectionOpen, setIsSelectionOpen] = useState(false);
+    const [settleMember, setSettleMember] = useState<{ name: string, balance: number } | null>(null);
 
     const group = groups.find(g => g.id === id);
     // Sort expenses by date descending
@@ -119,7 +123,9 @@ export function GroupView({ userName }: { userName: string }) {
                         </Button>
                     </AddExpenseModal>
 
-                    <Button className="bg-[#32dd9e] hover:bg-[#32dd9e]/90 text-white font-black uppercase italic px-10 h-16 rounded-[1.5rem] shadow-[0_8px_0_#1d8a62] active:shadow-none active:translate-y-[8px] transition-all border border-black/10 flex items-center gap-4 text-xl">
+                    <Button
+                        onClick={() => setIsSelectionOpen(true)}
+                        className="bg-[#32dd9e] hover:bg-[#32dd9e]/90 text-white font-black uppercase italic px-10 h-16 rounded-[1.5rem] shadow-[0_8px_0_#1d8a62] active:shadow-none active:translate-y-[8px] transition-all border border-black/10 flex items-center gap-4 text-xl">
                         <UserCheck className="w-6 h-6" />
                         Settle up
                     </Button>
@@ -242,6 +248,56 @@ export function GroupView({ userName }: { userName: string }) {
                 onClose={() => setSelectedExpenseId(null)}
                 userName={userName}
             />
+
+            {/* Settle Up Selection Dialog (Simple Implementation) */}
+            <Dialog open={isSelectionOpen} onOpenChange={setIsSelectionOpen}>
+                <DialogContent className="bg-white rounded-3xl p-6">
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter">Who to settle with?</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4 mt-4 max-h-[60vh] overflow-y-auto">
+                        {group.members.filter(m => m.name !== userName && m.name !== "You").map((member) => {
+                            const bal = getFriendBalance(member.name);
+                            if (Math.abs(bal) < 1) return null; // Hide already settled
+                            return (
+                                <div key={member.name} className="flex items-center justify-between bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-gray-900">{member.name}</span>
+                                        <span className={cn("text-[10px] font-black uppercase tracking-widest", bal > 0 ? "text-[#32dd9e]" : "text-[#ff6d2f]")}>
+                                            {bal > 0 ? "owes you" : "you owe"} ₹{Math.abs(bal).toLocaleString()}
+                                        </span>
+                                    </div>
+                                    <Button
+                                        onClick={() => {
+                                            setSettleMember({ name: member.name, balance: bal });
+                                            setIsSelectionOpen(false);
+                                        }}
+                                        size="sm"
+                                        className="bg-black text-white rounded-xl font-bold uppercase tracking-wider text-xs"
+                                    >
+                                        Settle
+                                    </Button>
+                                </div>
+                            );
+                        })}
+                        {group.members.filter(m => Math.abs(getFriendBalance(m.name)) >= 1 && m.name !== userName).length === 0 && (
+                            <div className="text-center py-10 text-gray-400 font-bold uppercase tracking-widest text-xs">
+                                No outstanding balances
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {settleMember && (
+                <SettleUpModal
+                    isOpen={!!settleMember}
+                    onClose={() => setSettleMember(null)}
+                    friendName={settleMember.name}
+                    balance={settleMember.balance}
+                    userName={userName}
+                />
+            )}
         </div>
     );
 }

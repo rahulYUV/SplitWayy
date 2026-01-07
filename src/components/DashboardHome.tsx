@@ -9,12 +9,18 @@ import { useExpenses } from "@/context/ExpenseContext";
 import { cn } from "@/lib/utils";
 import { AddExpenseModal } from "@/components/AddExpenseModal";
 
+import { FooterSection } from "./FooterSection";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { SettleUpModal } from "@/components/SettleUpModal";
+
 interface DashboardHomeProps {
     userName: string;
 }
 
 export function DashboardHome({ userName }: DashboardHomeProps) {
     const [viewMode, setViewMode] = useState<'list' | 'chart'>('list');
+    const [isSelectionOpen, setIsSelectionOpen] = useState(false);
+    const [settleMember, setSettleMember] = useState<{ name: string, balance: number } | null>(null);
     const { expenses, friends, getFriendBalance } = useExpenses();
 
     // Calculate dynamic data
@@ -121,7 +127,9 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
                             Add an expense
                         </Button>
                     </AddExpenseModal>
-                    <Button className="bg-[#32dd9e] hover:bg-[#45e6a9] text-white font-black uppercase italic px-8 py-7 rounded-2xl shadow-[0_12px_0_#1a8c63] active:shadow-none active:translate-y-[12px] transition-all border-4 border-white/10 flex items-center gap-4 text-lg group">
+                    <Button
+                        onClick={() => setIsSelectionOpen(true)}
+                        className="bg-[#32dd9e] hover:bg-[#45e6a9] text-white font-black uppercase italic px-8 py-7 rounded-2xl shadow-[0_12px_0_#1a8c63] active:shadow-none active:translate-y-[12px] transition-all border-4 border-white/10 flex items-center gap-4 text-lg group">
                         <Check className="w-5 h-5 group-hover:scale-110 transition-transform" />
                         Settle up
                     </Button>
@@ -138,8 +146,8 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
                         <button
                             onClick={() => setViewMode('list')}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-[10px] font-black uppercase tracking-widest ${viewMode === 'list'
-                                ? 'bg-white text-[#ff6d2f] shadow-sm'
-                                : 'text-gray-400 hover:text-gray-600'
+                                ? 'bg-white text-[#ff6d2f] shadow-md ring-2 ring-[#ff6d2f]/10'
+                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
                                 }`}
                         >
                             <LayoutList className="w-3 h-3" />
@@ -148,8 +156,8 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
                         <button
                             onClick={() => setViewMode('chart')}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-[10px] font-black uppercase tracking-widest ${viewMode === 'chart'
-                                ? 'bg-white text-[#32dd9e] shadow-sm'
-                                : 'text-gray-400 hover:text-gray-600'
+                                ? 'bg-white text-[#32dd9e] shadow-md ring-2 ring-[#32dd9e]/10'
+                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
                                 }`}
                         >
                             <PieChartIcon className="w-3 h-3" />
@@ -264,12 +272,63 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
                 </AnimatePresence>
             </div>
 
+            {/* Settle Up Selection Dialog */}
+            <Dialog open={isSelectionOpen} onOpenChange={setIsSelectionOpen}>
+                <DialogContent className="bg-white rounded-3xl p-6">
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter">Who to settle with?</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4 mt-4 max-h-[60vh] overflow-y-auto">
+                        {/* Combine owe and owed data for selection */}
+                        {[...oweData, ...owedData].map((person) => (
+                            <div key={person.name} className="flex items-center justify-between bg-gray-50 p-4 rounded-2xl border border-gray-100">
+                                <div className="flex flex-col">
+                                    <span className="font-bold text-gray-900">{person.name}</span>
+                                    <span className={cn("text-[10px] font-black uppercase tracking-widest", person.amount > 0 ? "text-[#32dd9e]" : "text-[#ff6d2f]")}>
+                                        {oweData.some(o => o.name === person.name) ? "you owe" : "owes you"} ₹{person.amount.toLocaleString()}
+                                    </span>
+                                </div>
+                                <Button
+                                    onClick={() => {
+                                        // Determine balance sign: if in oweData, I owe them (negative balance from my perspective). 
+                                        // Wait, modal expects: Positive = I am owed. Negative = I owe.
+                                        // oweData amounts are absolute. So if in oweData, balance should be -amount.
+                                        // owedData amounts are absolute. So if in owedData, balance should be +amount.
+                                        const isOwe = oweData.some(o => o.name === person.name);
+                                        const realBalance = isOwe ? -person.amount : person.amount;
+
+                                        setSettleMember({ name: person.name, balance: realBalance });
+                                        setIsSelectionOpen(false);
+                                    }}
+                                    size="sm"
+                                    className="bg-black text-white rounded-xl font-bold uppercase tracking-wider text-xs"
+                                >
+                                    Settle
+                                </Button>
+                            </div>
+                        ))}
+                        {[...oweData, ...owedData].length === 0 && (
+                            <div className="text-center py-10 text-gray-400 font-bold uppercase tracking-widest text-xs">
+                                No outstanding balances
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {settleMember && (
+                <SettleUpModal
+                    isOpen={!!settleMember}
+                    onClose={() => setSettleMember(null)}
+                    friendName={settleMember.name}
+                    balance={settleMember.balance}
+                    userName={userName}
+                />
+            )}
+
             {/* 5. Footer */}
-            <div className="p-8 opacity-20 flex flex-col items-center mt-auto">
-                <div className="w-6 h-[1px] bg-white mb-2" />
-                <p className="text-[8px] font-black uppercase tracking-[0.5em] text-white">
-                    SplitWayy Engine v2.0
-                </p>
+            <div className="p-8 pb-12 w-full mt-auto">
+                <FooterSection />
             </div>
         </div>
     );

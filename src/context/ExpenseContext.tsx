@@ -27,6 +27,8 @@ export interface Expense {
     groupId?: string | null; // Optional group ID
     createdBy: string;
     billImageUrl?: string; // Optional bill image URL
+    category?: string;
+    notes?: string;
 }
 
 export interface GroupMember {
@@ -96,9 +98,14 @@ export const ExpenseProvider: React.FC<{ children: React.ReactNode }> = ({ child
         // 1. Listen for dynamic expenses
         const qExpenses = query(
             collection(db, "expenses"),
+            // I created it
             or(
+                // I created it
                 where("createdBy", "==", userId),
+                // I am a participant (by name)
                 where("participants", "array-contains", userName || "You"),
+
+                // Let's also check strict email matching if available
                 ...(userEmail ? [where("participantEmails", "array-contains", userEmail)] : [])
             )
         );
