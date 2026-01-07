@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, useWatch } from "react-hook-form"
 import { z } from "zod"
-import { Receipt, Plus, Users, Wallet, CreditCard, X, Check, ArrowRight, IndianRupee, Calendar as CalendarIcon, UserCheck } from "lucide-react"
+import { Receipt, Plus, Users, Wallet, CreditCard, X, Check, IndianRupee, Calendar as CalendarIcon, UserCheck, Tag, Repeat } from "lucide-react"
 import { sendExpenseNotification } from "@/services/emailService"
 import { updateExpense } from "@/services/expenseService"
 import { toast } from "sonner"
@@ -41,19 +41,24 @@ import {
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import { useExpenses } from "@/context/ExpenseContext"
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
+import { storage } from "@/lib/firebase"
 
 const expenseSchema = z.object({
     description: z.string().min(3, "Description must be at least 3 characters"),
-    amount: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, "Amount must be a positive number"),
+    amount: z.string().refine((val) => !isNaN(Number(val)) && Number(val) > 0, "Amount must be a positive number").refine((val) => Number(val) <= 1000000, "Not allowed to add more than 10 Lakh"),
     participants: z.array(z.string()).min(0),
     paidBy: z.string().min(1, "Select who paid"),
-    splitMethod: z.enum(["equally", "percentage"]),
+    splitMethod: z.enum(["equally", "percentage", "exact"]),
     splitDetails: z.record(z.string(), z.string()).optional(),
     payerDetails: z.record(z.string(), z.string()).optional(),
     notes: z.string().optional(),
     date: z.date(),
     groupId: z.string().nullable().optional(),
-    billImageUrl: z.string().optional(),
+    billImageUrl: z.string().nullable().optional(),
+    category: z.string().optional(),
+    isRecurring: z.boolean().default(false),
+    recurringInterval: z.enum(["weekly", "monthly"]).default("monthly"),
 })
 
 type ExpenseFormValues = z.infer<typeof expenseSchema>
@@ -68,6 +73,13 @@ interface AddExpenseModalProps {
     onOpenChange?: (open: boolean) => void
 }
 
+const Label = ({ icon, text }: { icon: React.ReactNode, text: string }) => (
+    <label className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
+        <span className="text-gray-400">{icon}</span>
+        {text}
+    </label>
+)
+
 export function AddExpenseModal({ children, groupId, userName, mode = "add", initialData, open: controlledOpen, onOpenChange }: AddExpenseModalProps) {
     const [internalOpen, setInternalOpen] = useState(false)
     const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen
@@ -78,15 +90,18 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
     }
 
     const [billImage, setBillImage] = useState<string | null>(null)
+    const [isImageUploading, setIsImageUploading] = useState(false)
     const [manualEmails, setManualEmails] = useState<Record<string, string>>({})
+    const [everyonePaidOwn, setEveryonePaidOwn] = useState(false)
     const { addExpense, groups, friends } = useExpenses()
 
     // Find group if groupId is provided
     const selectedGroup = groups.find(g => g.id === groupId)
-    const groupMemberNames = selectedGroup?.members.map(m => m.name).filter(n => n !== "You") || []
+    // Ensure "You" is always an option, even if missing from group members list (legacy data fix)
+    const groupMemberNames = Array.from(new Set([...(selectedGroup?.members.map(m => m.name) || []), "You"]));
 
     const form = useForm<ExpenseFormValues>({
-        resolver: zodResolver(expenseSchema),
+        resolver: zodResolver(expenseSchema) as any,
         defaultValues: mode === "edit" && initialData ? {
             description: initialData.description,
             amount: String(initialData.amount),
@@ -99,10 +114,13 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
             date: initialData.date instanceof Date ? initialData.date : new Date(initialData.date),
             groupId: initialData.groupId,
             billImageUrl: initialData.billImageUrl,
+            category: initialData.category || "Other",
+            isRecurring: initialData.recurring?.isRecurring ?? false,
+            recurringInterval: initialData.recurring?.interval || "monthly",
         } : {
             description: "",
             amount: "",
-            participants: groupId ? groupMemberNames : [],
+            participants: groupId ? groupMemberNames : ["You"],
             paidBy: "You",
             splitMethod: "equally",
             splitDetails: {},
@@ -111,6 +129,9 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
             date: new Date(),
             groupId: groupId || undefined,
             billImageUrl: undefined,
+            category: "Other",
+            isRecurring: false,
+            recurringInterval: "monthly",
         },
     })
 
@@ -129,6 +150,9 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                 date: initialData.date ? new Date(initialData.date) : new Date(),
                 groupId: initialData.groupId,
                 billImageUrl: initialData.billImageUrl,
+                category: initialData.category || "Other",
+                isRecurring: initialData.recurring?.isRecurring ?? false,
+                recurringInterval: initialData.recurring?.interval || "monthly",
             })
             setBillImage(initialData.billImageUrl || null)
         }
@@ -138,15 +162,17 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
     useEffect(() => {
         if (isOpen) {
             setBillImage(null);
+            setEveryonePaidOwn(false);
             if (groupId && selectedGroup) {
                 form.setValue("participants", groupMemberNames)
                 form.setValue("groupId", groupId)
             } else if (!groupId && mode === "add") {
-                form.setValue("participants", [])
+                form.setValue("participants", ["You"])
                 form.setValue("groupId", undefined)
             }
         } else {
             setBillImage(null);
+            setEveryonePaidOwn(false);
         }
     }, [isOpen, groupId, selectedGroup, mode])
 
@@ -157,26 +183,53 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
     const splitDetails = useWatch({ control: form.control, name: "splitDetails" }) || {}
     const payerDetails = useWatch({ control: form.control, name: "payerDetails" }) || {}
 
-    const allInvolved = ["You", ...participants]
+    const allInvolved = participants
+
+    useEffect(() => {
+        if (everyonePaidOwn) {
+            form.setValue("splitMethod", "exact");
+        }
+    }, [everyonePaidOwn, form]);
+
+    const handleOwnShareChange = (person: string, val: string) => {
+        form.setValue(`payerDetails.${person}`, val);
+        form.setValue(`splitDetails.${person}`, val);
+
+        // Calculate new Total live
+        const newTotal = allInvolved.reduce((acc, p) => {
+            const pVal = p === person ? val : (payerDetails[p] || "0");
+            return acc + (Number(pVal) || 0);
+        }, 0);
+
+        form.setValue("amount", String(newTotal));
+    }
 
     const onSubmit = async (values: ExpenseFormValues) => {
         try {
-            // Auto-add text from search box if user forgot to click +
+            if (Number(values.amount) > 1000000) {
+                toast.error("Expense limit exceeded! Max allowed is ₹10,00,000");
+                return;
+            }
             let finalParticipants = [...values.participants]
-            // Note: In new manual mode, we rely on state manualEmails and + click. 
-            // But if user typed in manual-name inputs and pressed Save, we could try to capture it.
-            // For safety, we skip incomplete inputs to avoid bugs, as per previous logic.
 
             if (values.splitMethod === "percentage") {
-                const totalPercent = ["You", ...finalParticipants].reduce((acc, name) => acc + (Number(values.splitDetails?.[name]) || 0), 0)
+                const totalPercent = finalParticipants.reduce((acc, name) => acc + (Number(values.splitDetails?.[name]) || 0), 0)
                 if (Math.abs(totalPercent - 100) > 0.1) {
                     toast.error("Total percentage must add up to 100%")
                     return
                 }
             }
 
+            if (values.splitMethod === "exact") {
+                const totalExact = finalParticipants.reduce((acc, name) => acc + (Number(values.splitDetails?.[name]) || 0), 0)
+                if (Math.abs(totalExact - Number(values.amount)) > 0.1) {
+                    toast.error(`Total split amount (₹${totalExact}) must match expense amount (₹${values.amount})`)
+                    return
+                }
+            }
+
             if (values.paidBy === "multiple") {
-                const totalPaid = ["You", ...finalParticipants].reduce((acc, name) => acc + (Number(values.payerDetails?.[name]) || 0), 0)
+                const totalPaid = finalParticipants.reduce((acc, name) => acc + (Number(values.payerDetails?.[name]) || 0), 0)
                 if (Math.abs(totalPaid - Number(values.amount)) > 0.1) {
                     toast.error(`Total paid (₹${totalPaid}) must match total amount (₹${values.amount})`)
                     return
@@ -186,20 +239,15 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
             // Gather Emails for Sync & Notifications
             const pEmails: string[] = [];
             finalParticipants.forEach(p => {
-                // 1. Direct Email Input
                 if (p.includes('@')) {
                     pEmails.push(p);
                     return;
                 }
-
-                // 2. Lookup in Saved Friends
                 const friend = friends.find(f => f.displayName === p);
                 if (friend?.email) {
                     pEmails.push(friend.email);
                     return;
                 }
-
-                // 3. Lookup in Group Members
                 if (groupId && selectedGroup) {
                     const member = selectedGroup.members.find(m => m.name === p);
                     if (member?.email) {
@@ -207,25 +255,63 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                         return;
                     }
                 }
-
-                // 4. Lookup in Manual Inputs
                 if (manualEmails[p]) {
                     pEmails.push(manualEmails[p]);
                 }
             });
 
+            // Sanitize Data: Replace "You" with actual userName
+            const effectiveUserName = userName || "You";
+
+            const sanitizedParticipants = finalParticipants.map(p => p === "You" ? effectiveUserName : p);
+
+            // Allow user to be added if implicitly involved but not in list (for split safety)
+            // But usually we respect the form.
+
+            const sanitizeDetails = (details: Record<string, string> | undefined) => {
+                if (!details) return {};
+                const newDetails: Record<string, string> = {};
+                Object.entries(details).forEach(([key, val]) => {
+                    const newKey = key === "You" ? effectiveUserName : key;
+                    newDetails[newKey] = val;
+                });
+                return newDetails;
+            };
+
             const expenseData = {
                 description: values.description,
                 amount: Number(values.amount),
-                participants: finalParticipants,
+                participants: sanitizedParticipants,
                 participantEmails: pEmails,
-                paidBy: values.paidBy,
+                paidBy: values.paidBy === "You" ? effectiveUserName : values.paidBy,
                 splitMethod: values.splitMethod,
-                splitDetails: values.splitDetails,
-                payerDetails: values.payerDetails,
+                splitDetails: sanitizeDetails(values.splitDetails),
+                payerDetails: sanitizeDetails(values.payerDetails),
                 date: values.date,
                 groupId: values.groupId || null,
-                billImageUrl: values.billImageUrl,
+                billImageUrl: values.billImageUrl || null,
+                category: values.category || "Other",
+                recurring: values.isRecurring ? {
+                    isRecurring: true,
+                    interval: values.recurringInterval,
+                    active: true,
+                    nextDue: (() => {
+                        const d = new Date(values.date);
+                        if (values.recurringInterval === 'weekly') {
+                            d.setDate(d.getDate() + 7);
+                        } else if (values.recurringInterval === 'monthly') {
+                            // Smart Monthly Logic: Jan 31 -> Feb 28/29
+                            const currentDay = d.getDate();
+                            d.setMonth(d.getMonth() + 1);
+                            if (d.getDate() !== currentDay) {
+                                // Overflow happened (e.g. Feb 3 instead of Feb 28)
+                                // Go back to last day of previous month
+                                d.setDate(0);
+                            }
+                        }
+                        return d;
+                    })()
+                } : null,
             }
 
             if (mode === "edit" && initialData?.id) {
@@ -234,9 +320,8 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
             } else {
                 await addExpense(expenseData)
 
-                // Send Email Notifications (Only on Create)
                 if (pEmails.length > 0) {
-                    const splitAmt = Number((Number(values.amount) / (finalParticipants.length + 1)).toFixed(2));
+                    const splitAmt = Number((Number(values.amount) / (finalParticipants.length)).toFixed(2));
                     pEmails.forEach(email => {
                         const pName = finalParticipants.find(p => p.includes(email) || friends.find(f => f.email === email)?.displayName === p) || "Friend";
                         sendExpenseNotification(
@@ -267,7 +352,7 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
         }
     }
 
-    const friendsList = friends.map(f => f.displayName)
+    const friendsList = friends.map(f => f.displayName).filter((n): n is string => !!n)
 
     const toggleParticipant = (friend: string) => {
         const current = form.getValues("participants")
@@ -292,12 +377,11 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
             <DialogTrigger asChild>
                 {children}
             </DialogTrigger>
-            <DialogContent className="max-w-3xl bg-white border-none rounded-3xl p-0 overflow-hidden shadow-2xl flex flex-col md:h-auto overflow-y-auto max-h-[95vh]">
+            <DialogContent className="sm:max-w-2xl p-0 overflow-hidden bg-white border-none shadow-2xl rounded-3xl h-[85vh] flex flex-col [&>button:last-child]:hidden">
                 {/* Clean Header */}
                 <div className="bg-[#32dd9e] px-8 py-5 pb-10 flex items-center justify-between shrink-0 text-white relative">
                     <div className="flex items-center gap-3 font-semibold relative z-10">
                         <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
-                            <Receipt className="w-5 h-5" />
                         </div>
                         <div className="flex flex-col">
                             <DialogTitle className="text-lg leading-tight font-bold text-white">
@@ -324,9 +408,12 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                     />
                 </div>
 
-                <div className="p-8 bg-white">
+                <div className="p-8 bg-white flex-1 overflow-y-auto custom-scrollbar">
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                        <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+                            console.error("Form Validation Errors:", errors);
+                            toast.error("Please check the form for errors. Some fields are missing or invalid.");
+                        })} className="space-y-8">
 
                             {/* Section 1: Participants */}
                             <div className="space-y-4">
@@ -341,7 +428,7 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                                     </div>
                                     <div className="flex items-center gap-2 bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
                                         <Users size={12} className="text-[#32dd9e]" />
-                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">{participants.length + 1} INVOLVED</span>
+                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">{participants.length} INVOLVED</span>
                                     </div>
                                 </div>
 
@@ -365,14 +452,13 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                                     <div className="flex flex-wrap gap-2 items-center">
                                         {/* Show group members as toggleable buttons */}
                                         {groupId ? (
-                                            selectedGroup?.members.map(member => {
-                                                if (member.name === "You") return null;
-                                                const isSelected = participants.includes(member.name);
+                                            groupMemberNames.map(name => {
+                                                const isSelected = participants.includes(name);
                                                 return (
                                                     <button
-                                                        key={member.name}
+                                                        key={name}
                                                         type="button"
-                                                        onClick={() => toggleParticipant(member.name)}
+                                                        onClick={() => toggleParticipant(name)}
                                                         className={cn(
                                                             "h-9 px-4 rounded-xl text-[10px] font-semibold transition-all border flex items-center gap-2",
                                                             isSelected
@@ -381,7 +467,7 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                                                         )}
                                                     >
                                                         {isSelected && <Check className="w-3 h-3 text-[#32dd9e]" />}
-                                                        {member.name}
+                                                        {name}
                                                     </button>
                                                 );
                                             })
@@ -498,7 +584,7 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                                 <div className="space-y-6">
                                     <div className="grid grid-cols-2 gap-4">
                                         <FormField
-                                            control={form.control}
+                                            control={form.control as any}
                                             name="description"
                                             render={({ field }) => (
                                                 <FormItem className="space-y-1.5 col-span-2">
@@ -516,7 +602,7 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                                         />
 
                                         <FormField
-                                            control={form.control}
+                                            control={form.control as any}
                                             name="amount"
                                             render={({ field }) => (
                                                 <FormItem className="space-y-1.5">
@@ -539,7 +625,7 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                                         />
 
                                         <FormField
-                                            control={form.control}
+                                            control={form.control as any}
                                             name="date"
                                             render={({ field }) => (
                                                 <FormItem className="space-y-1.5 flex flex-col">
@@ -584,6 +670,78 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                                         />
                                     </div>
 
+                                    {/* Category & Recurring */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <Label icon={<Tag size={12} />} text="Category" />
+                                            <FormField
+                                                control={form.control as any}
+                                                name="category"
+                                                render={({ field }) => (
+                                                    <FormItem className="space-y-0">
+                                                        <Select onValueChange={field.onChange} value={field.value}>
+                                                            <FormControl>
+                                                                <SelectTrigger className="h-11 bg-gray-50 border-gray-100 rounded-xl px-4 text-xs font-semibold focus:bg-white">
+                                                                    <SelectValue placeholder="Select Category" />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent className="rounded-xl border-gray-100 shadow-xl">
+                                                                {["Food", "Travel", "Rent", "Entertainment", "Utilities", "Other"].map(cat => (
+                                                                    <SelectItem key={cat} value={cat} className="text-xs font-medium">{cat}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <Label icon={<Repeat size={12} />} text="Recurring?" />
+                                            <div className="flex gap-2">
+                                                <FormField
+                                                    control={form.control as any}
+                                                    name="isRecurring"
+                                                    render={({ field }) => (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => field.onChange(!field.value)}
+                                                            className={cn(
+                                                                "h-11 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 flex-1",
+                                                                field.value ? "bg-black text-white border-black" : "bg-gray-50 border-gray-100 text-gray-400 hover:bg-gray-100"
+                                                            )}
+                                                        >
+                                                            {field.value && <Check size={12} />}
+                                                            {field.value ? "Yes" : "No"}
+                                                        </button>
+                                                    )}
+                                                />
+                                                {form.watch("isRecurring") && (
+                                                    <FormField
+                                                        control={form.control as any}
+                                                        name="recurringInterval"
+                                                        render={({ field }) => (
+                                                            <FormItem className="space-y-0">
+                                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                                    <FormControl>
+                                                                        <SelectTrigger className="h-11 w-24 bg-gray-50 border-gray-100 rounded-xl px-2 text-[10px] font-bold uppercase focus:bg-white">
+                                                                            <SelectValue />
+                                                                        </SelectTrigger>
+                                                                    </FormControl>
+                                                                    <SelectContent className="rounded-xl border-gray-100 min-w-[100px]">
+                                                                        <SelectItem value="weekly" className="text-xs">Weekly</SelectItem>
+                                                                        <SelectItem value="monthly" className="text-xs">Monthly</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     {/* Bill Image Upload (Optional) */}
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
@@ -603,15 +761,32 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                                                         type="file"
                                                         accept="image/*"
                                                         className="hidden"
-                                                        onChange={(e) => {
+                                                        onChange={async (e) => {
                                                             const file = e.target.files?.[0];
                                                             if (file) {
+                                                                // Preview
                                                                 const reader = new FileReader();
                                                                 reader.onloadend = () => {
                                                                     setBillImage(reader.result as string);
-                                                                    form.setValue("billImageUrl", reader.result as string);
                                                                 };
                                                                 reader.readAsDataURL(file);
+
+                                                                // Upload
+                                                                setIsImageUploading(true);
+                                                                try {
+                                                                    const storageRef = ref(storage, `expenses/${Date.now()}_${file.name}`);
+                                                                    const snapshot = await uploadBytes(storageRef, file);
+                                                                    const downloadURL = await getDownloadURL(snapshot.ref);
+                                                                    form.setValue("billImageUrl", downloadURL);
+                                                                    toast.success("Bill image uploaded!");
+                                                                } catch (error) {
+                                                                    console.error("Upload failed", error);
+                                                                    toast.error("Failed to upload image. Check storage rules.");
+                                                                    setBillImage(null);
+                                                                    form.setValue("billImageUrl", undefined);
+                                                                } finally {
+                                                                    setIsImageUploading(false);
+                                                                }
                                                             }
                                                         }}
                                                     />
@@ -636,12 +811,9 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
 
                                     <div className="flex gap-4">
                                         <div className="flex-1 space-y-1.5">
-                                            <label className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
-                                                <Wallet size={12} className="text-gray-400" />
-                                                Payer
-                                            </label>
+                                            <Label icon={<Wallet size={12} />} text="Payer" />
                                             <FormField
-                                                control={form.control}
+                                                control={form.control as any}
                                                 name="paidBy"
                                                 render={({ field }) => (
                                                     <Select onValueChange={field.onChange} value={field.value}>
@@ -660,12 +832,9 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                                             />
                                         </div>
                                         <div className="flex-1 space-y-1.5">
-                                            <label className="text-xs font-semibold text-gray-900 flex items-center gap-1.5">
-                                                <CreditCard size={12} className="text-gray-400" />
-                                                Split
-                                            </label>
+                                            <Label icon={<CreditCard size={12} />} text="Split" />
                                             <FormField
-                                                control={form.control}
+                                                control={form.control as any}
                                                 name="splitMethod"
                                                 render={({ field }) => (
                                                     <Select onValueChange={field.onChange} value={field.value}>
@@ -675,6 +844,7 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                                                         <SelectContent className="rounded-xl border-gray-100 shadow-xl overflow-hidden">
                                                             <SelectItem value="equally" className="text-xs font-bold italic tracking-tighter">Equally</SelectItem>
                                                             <SelectItem value="percentage" className="text-xs font-bold italic tracking-tighter">By Percent</SelectItem>
+                                                            <SelectItem value="exact" className="text-xs font-bold italic tracking-tighter">Exact Amount</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                 )}
@@ -685,42 +855,114 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
 
                                 {/* Summary & Advanced Section */}
                                 <div className="bg-gray-50/50 rounded-2xl border border-gray-100 p-6 space-y-4">
-                                    {(paidBy === "multiple" || splitMethod === "percentage") ? (
-                                        <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                                            {allInvolved.map((person) => (
-                                                <div key={person} className="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100 shadow-sm transition-transform hover:scale-[1.02]">
-                                                    <span className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">{person}</span>
-                                                    <div className="flex gap-2">
-                                                        {paidBy === "multiple" && (
-                                                            <Input
-                                                                placeholder="₹ Paid"
-                                                                className="h-8 w-20 px-2 text-[10px] border-gray-100 rounded-lg text-right font-bold"
-                                                                value={payerDetails[person] || ""}
-                                                                onChange={(e) => form.setValue(`payerDetails.${person}`, e.target.value)}
-                                                            />
-                                                        )}
-                                                        {splitMethod === "percentage" && (
-                                                            <Input
-                                                                placeholder="% Share"
-                                                                className="h-8 w-16 px-2 text-[10px] border-gray-100 rounded-lg text-right font-bold"
-                                                                value={splitDetails[person] || ""}
-                                                                onChange={(e) => form.setValue(`splitDetails.${person}`, e.target.value)}
-                                                            />
-                                                        )}
-                                                        <div className="w-16 flex flex-col items-end justify-center">
-                                                            <span className="text-[8px] text-gray-400 font-bold uppercase leading-none mb-0.5">SHARE</span>
-                                                            <span className="text-[10px] text-black font-black leading-none">
-                                                                ₹{splitMethod === "equally"
-                                                                    ? ((Number(amount) || 0) / allInvolved.length).toFixed(0)
-                                                                    : (((Number(amount) || 0) * (Number(splitDetails[person]) || 0)) / 100).toFixed(0)
+                                    {/* Multiple Payers Section */}
+                                    {paidBy === "multiple" && (
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between px-1">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-[#32dd9e]">Who Paid?</span>
+                                                <span className="text-[10px] font-bold text-gray-400">Total: ₹{allInvolved.reduce((acc, p) => acc + (Number(payerDetails[p]) || 0), 0)}</span>
+                                            </div>
+
+                                            {/* Toggle: Everyone paid their own */}
+                                            <div
+                                                className={cn(
+                                                    "flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all",
+                                                    everyonePaidOwn ? "bg-blue-50 border-blue-200" : "bg-white border-gray-100 hover:border-gray-300"
+                                                )}
+                                                onClick={() => {
+                                                    const newState = !everyonePaidOwn;
+                                                    setEveryonePaidOwn(newState);
+                                                    if (newState) {
+                                                        allInvolved.forEach(p => form.setValue(`splitDetails.${p}`, payerDetails[p] || ""));
+                                                        form.setValue("splitMethod", "exact");
+                                                    }
+                                                }}
+                                            >
+                                                <div className={cn("w-5 h-5 rounded-lg border flex items-center justify-center transition-colors", everyonePaidOwn ? "bg-blue-500 border-blue-500" : "bg-white border-gray-300")}>
+                                                    {everyonePaidOwn && <Check className="w-3.5 h-3.5 text-white" />}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-700">Everyone paid for themselves?</span>
+                                                    <span className="text-[9px] text-gray-400 font-semibold">Bill amount tracks the sum of payments</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="max-h-[200px] overflow-y-auto pr-2 custom-scrollbar space-y-2">
+                                                {allInvolved.map((person) => (
+                                                    <div key={`payer-${person}`} className="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">{person}</span>
+                                                        <Input
+                                                            placeholder={everyonePaidOwn ? "₹ Spent" : "₹ Paid"}
+                                                            className={cn(
+                                                                "h-8 w-24 px-2 text-[10px] border-gray-100 rounded-lg text-right font-bold focus:border-[#32dd9e]",
+                                                                everyonePaidOwn && "border-blue-200 focus:border-blue-500"
+                                                            )}
+                                                            value={payerDetails[person] || ""}
+                                                            onChange={(e) => {
+                                                                if (everyonePaidOwn) {
+                                                                    handleOwnShareChange(person, e.target.value);
+                                                                } else {
+                                                                    form.setValue(`payerDetails.${person}`, e.target.value);
                                                                 }
-                                                            </span>
+                                                            }}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Split Section */}
+                                    {(!everyonePaidOwn && (splitMethod === "percentage" || splitMethod === "exact")) && (
+                                        <div className="space-y-3 pt-2">
+                                            {paidBy === "multiple" && <div className="h-px bg-gray-200 w-full my-2" />}
+                                            <div className="flex items-center justify-between px-1">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">How to Split?</span>
+                                                <span className="text-[10px] font-bold text-gray-400">
+                                                    {splitMethod === "percentage"
+                                                        ? `Total: ${allInvolved.reduce((acc, p) => acc + (Number(splitDetails[p]) || 0), 0)}%`
+                                                        : `Total: ₹${allInvolved.reduce((acc, p) => acc + (Number(splitDetails[p]) || 0), 0)}`
+                                                    }
+                                                </span>
+                                            </div>
+                                            <div className="max-h-[200px] overflow-y-auto pr-2 custom-scrollbar space-y-2">
+                                                {allInvolved.map((person) => (
+                                                    <div key={`split-${person}`} className="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                                                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">{person}</span>
+                                                        <div className="flex gap-2 items-center">
+                                                            {splitMethod === "percentage" ? (
+                                                                <Input
+                                                                    placeholder="% Share"
+                                                                    className="h-8 w-16 px-2 text-[10px] border-gray-100 rounded-lg text-right font-bold focus:border-blue-400"
+                                                                    value={splitDetails[person] || ""}
+                                                                    onChange={(e) => form.setValue(`splitDetails.${person}`, e.target.value)}
+                                                                />
+                                                            ) : (
+                                                                <Input
+                                                                    placeholder="₹ Owed"
+                                                                    className="h-8 w-24 px-2 text-[10px] border-gray-100 rounded-lg text-right font-bold focus:border-blue-400"
+                                                                    value={splitDetails[person] || ""}
+                                                                    onChange={(e) => form.setValue(`splitDetails.${person}`, e.target.value)}
+                                                                />
+                                                            )}
+                                                            <div className="w-16 flex flex-col items-end justify-center opacity-50">
+                                                                <span className="text-[8px] text-gray-400 font-bold uppercase leading-none mb-0.5">SHARE</span>
+                                                                <span className="text-[10px] text-black font-black leading-none">
+                                                                    ₹{splitMethod === "percentage"
+                                                                        ? (((Number(amount) || 0) * (Number(splitDetails[person]) || 0)) / 100).toFixed(2)
+                                                                        : (Number(splitDetails[person]) || 0).toFixed(2)
+                                                                    }
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                ))}
+                                            </div>
                                         </div>
-                                    ) : (
+                                    )}
+
+                                    {/* Standard Split Info (Only when no custom split inputs are shown) */}
+                                    {!(paidBy === "multiple" || splitMethod === "percentage" || splitMethod === "exact") && (
                                         <div className="flex flex-col items-center justify-center py-6 text-center space-y-3">
                                             <div className="w-12 h-12 bg-[#32dd9e]/10 rounded-full flex items-center justify-center">
                                                 <Users size={20} className="text-[#32dd9e]" />
@@ -747,31 +989,15 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                                         <div className="text-right">
                                             <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Each Pays</span>
                                             <p className="text-sm font-bold text-[#32dd9e] mt-0.5">
-                                                ₹{((Number(amount) || 0) / allInvolved.length).toFixed(0)}
+                                                ₹{((Number(amount) || 0) / allInvolved.length).toFixed(2)}
                                             </p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Footer Actions */}
-                            <div className="flex gap-4 pt-4 shrink-0 border-t border-gray-100">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    onClick={() => setOpen(false)}
-                                    className="h-12 px-8 rounded-xl text-xs font-bold text-gray-400 hover:text-black uppercase tracking-widest transition-all"
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    className="flex-1 h-12 bg-black hover:bg-black/90 text-white rounded-xl text-xs font-bold uppercase tracking-widest shadow-xl flex items-center justify-center gap-2 group transition-all"
-                                >
-                                    Save Bill Details
-                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                </Button>
-                            </div>
+                            <Button type="submit" disabled={isImageUploading} className="w-full h-12 bg-black hover:bg-gray-900 text-white rounded-xl text-sm font-bold shadow-xl transition-all hover:scale-[1.01]">
+                                {isImageUploading ? "Uploading Image..." : (mode === "edit" ? "Update Expense" : "Add Expense")}
+                            </Button>
                         </form>
                     </Form>
                 </div>

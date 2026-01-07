@@ -16,6 +16,7 @@ interface SettleUpModalProps {
     friendName: string; // The person we are settling with
     balance: number; // Positive: They owe me. Negative: I owe them.
     userName: string; // Current user
+    groupId?: string; // Optional: Link settlement to a group
 }
 
 declare global {
@@ -24,7 +25,7 @@ declare global {
     }
 }
 
-export function SettleUpModal({ isOpen, onClose, friendName, balance, userName }: SettleUpModalProps) {
+export function SettleUpModal({ isOpen, onClose, friendName, balance, userName, groupId }: SettleUpModalProps) {
     // Determine default mode based on balance
     // If balance > 0 (They owe me), default to 'take' (receiving money)
     // If balance < 0 (I owe them), default to 'give' (paying money)
@@ -72,9 +73,9 @@ export function SettleUpModal({ isOpen, onClose, friendName, balance, userName }
                     name: "SplitWayy",
                     description: `Settle up with ${friendName}`,
                     image: "https://your-logo-url.com/logo.png",
-                    handler: async function (response: any) {
+                    handler: async function (_response: any) {
                         // Payment Success
-                        await recordPayment(numAmount, "online", response.razorpay_payment_id);
+                        await recordPayment(numAmount, "online");
                     },
                     prefill: {
                         name: userName,
@@ -106,9 +107,9 @@ export function SettleUpModal({ isOpen, onClose, friendName, balance, userName }
         }
     };
 
-    const recordPayment = async (val: number, type: "cash" | "online", refId?: string) => {
+    const recordPayment = async (val: number, _type: "cash" | "online") => {
         // Log payment type if needed for analytics
-        console.log(`Recording ${type} payment`);
+        // console.log(`Recording ${type} payment`);
 
         try {
             // Logic Recap:
@@ -125,32 +126,31 @@ export function SettleUpModal({ isOpen, onClose, friendName, balance, userName }
 
             if (mode === "give") {
                 // I am paying Friend
-                paidBy = "You";
+                paidBy = userName || "You";
                 splitDetails = {
-                    "You": "0",
+                    [userName || "You"]: "0",
                     [friendName]: "100"
                 };
             } else {
                 // Friend is paying Me
                 paidBy = friendName;
                 splitDetails = {
-                    "You": "100",
+                    [userName || "You"]: "100",
                     [friendName]: "0"
                 };
             }
 
             await addExpense({
+                groupId: groupId || null, // Attach group ID if provided
                 description: "Settlement",
                 amount: val,
                 date: date,
                 paidBy: paidBy,
-                participants: [friendName], // "You" is implicit in logic usually, but here we explicitly just list the other person? 
-                // Context logic: allParticipants = ["You", ...expense.participants].
-                // So if I list [friendName], participants = ["You", friendName]. Correct.
+                participants: [friendName, userName || "You"], // Include both explicitly
                 splitMethod: "percentage",
                 splitDetails: splitDetails,
                 category: "Payment",
-                notes: notes + (refId ? ` (Ref: ${refId})` : ""),
+                // notes not supported by interface
             });
 
             toast.success(`Settled ₹${val} with ${friendName}`);

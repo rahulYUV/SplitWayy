@@ -1,135 +1,127 @@
+import { db, storage } from "@/lib/firebase";
 import {
     collection,
-    doc,
-    setDoc,
-    getDoc,
-    getDocs,
+    addDoc,
     updateDoc,
+    doc,
     deleteDoc,
+    getDocs,
     query,
     where,
-    serverTimestamp,
-    Timestamp,
-    addDoc
+    onSnapshot,
+    orderBy,
+    Timestamp
 } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 export interface Expense {
     id: string;
     description: string;
     amount: number;
-    participants: string[];
-    participantEmails?: string[];
     paidBy: string;
-    splitMethod: "equally" | "percentage";
-    splitDetails?: Record<string, string>;
-    payerDetails?: Record<string, string>;
-    date: any;
-    groupId?: string | null;
-    createdBy: string;
-    createdAt: any;
-    updatedAt: any;
-    currency?: string;
+    participants: string[];
+    participantEmails?: string[]; // Added for filtering
+    splitMethod: "equally" | "exact" | "percentage";
+    splitDetails?: Record<string, number | string>;
+    payerDetails?: Record<string, number | string>;
+    date: Date | string;
     category?: string;
-    notes?: string;
-    billImageUrl?: string;
+    billImageUrl?: string | null;
+    groupId: string | null;
+    createdBy: string;
+    recurring?: {
+        isRecurring: boolean;
+        interval: "weekly" | "monthly";
+        active: boolean;
+        nextDue: Date | string;
+    } | null;
 }
 
-const COLLECTION_NAME = "expenses";
+const EXPENSES_COLLECTION = "expenses";
 
-// Helper to log activity
-const logActivity = async (action: 'create' | 'update' | 'delete', details: any, userId: string) => {
-    try {
-        await addDoc(collection(db, "activity_logs"), {
-            action,
-            details,
-            userId,
-            timestamp: new Date()
-        });
-    } catch (e) {
-        console.error("Failed to log activity:", e);
-    }
-};
+export const createExpense = async (expenseData: Omit<Expense, "id">) => {
+    // Remove undefined fields to avoid Firestore errors
+    const data = Object.fromEntries(
+        Object.entries(expenseData).filter(([_, v]) => v !== undefined)
+    );
 
-export const createExpense = async (expenseData: Omit<Expense, "id" | "createdAt" | "updatedAt">) => {
-    const expenseRef = doc(collection(db, COLLECTION_NAME));
+    // Ensure recurring is null if not present
 
-    // Build the new expense object, excluding undefined fields
-    const newExpense: any = {
-        ...expenseData,
-        id: expenseRef.id,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        date: expenseData.date instanceof Date ? Timestamp.fromDate(expenseData.date) : expenseData.date
-    };
-
-    // Remove undefined fields (Firebase doesn't accept undefined)
-    Object.keys(newExpense).forEach(key => {
-        if (newExpense[key] === undefined) {
-            delete newExpense[key];
-        }
+    const docRef = await addDoc(collection(db, EXPENSES_COLLECTION), {
+        ...data,
+        createdAt: Timestamp.now()
     });
-
-    await setDoc(expenseRef, newExpense);
-    return expenseRef.id;
+    return { id: docRef.id, ...data };
 };
 
-export const getExpenses = async (userId: string, filters?: { groupId?: string, friendId?: string }) => {
-    let q = query(collection(db, COLLECTION_NAME), where("createdBy", "==", userId));
+export const updateExpense = async (id: string, updates: Partial<Expense>) => {
+    const data = Object.fromEntries(
+        Object.entries(updates).filter(([_, v]) => v !== undefined)
+    );
+    const docRef = doc(db, EXPENSES_COLLECTION, id);
+    await updateDoc(docRef, data);
+};
 
-    if (filters?.groupId) {
-        q = query(collection(db, COLLECTION_NAME), where("groupId", "==", filters.groupId));
-    }
+export const deleteExpense = async (id: string) => {
+    const docRef = doc(db, EXPENSES_COLLECTION, id);
+    await deleteDoc(docRef);
+};
 
+export const getExpenses = async () => {
+    // Ideally filter by user participation
+    const q = query(collection(db, EXPENSES_COLLECTION), orderBy("date", "desc"));
     const querySnapshot = await getDocs(q);
-    const expenses = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-            ...data,
-            date: data.date instanceof Timestamp ? data.date.toDate() : data.date
-        } as Expense;
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
+};
+
+export const subscribeToExpenses = (callback: (expenses: Expense[]) => void) => {
+    const q = query(collection(db, EXPENSES_COLLECTION));
+    return onSnapshot(q, (snapshot) => {
+        const expenses = snapshot.docs.map(doc => {
+            const data = doc.data();
+            let date = data.date;
+            if (date instanceof Timestamp) {
+                date = date.toDate();
+            }
+            return { id: doc.id, ...data, date } as Expense;
+        });
+        callback(expenses);
     });
+};
 
-    // Manual sort by date desc
-    return expenses.sort((a, b) => {
-        const dateA = a.date instanceof Date ? a.date.getTime() : 0;
-        const dateB = b.date instanceof Date ? b.date.getTime() : 0;
-        return dateB - dateA;
+export const subscribeToUserExpenses = (userId: string, userEmail: string | null | undefined, callback: (expenses: Expense[]) => void) => {
+    let q;
+    if (userEmail) {
+        // Filter by participantEmails OR createdBy
+        // We use participantEmails as primary filter for shared expenses
+        // Also include createdBy to ensure user sees what they created even if not in participants (edge case)
+        // Firestore restriction: Logical OR with different fields requires composite index.
+        // Simpler: Just participantEmails. AddExpenseModal adds creator to participants usually.
+
+        q = query(
+            collection(db, EXPENSES_COLLECTION),
+            where("participantEmails", "array-contains", userEmail)
+        );
+    } else {
+        // Fallback to createdBy if no email
+        q = query(collection(db, EXPENSES_COLLECTION), where("createdBy", "==", userId));
+    }
+
+    return onSnapshot(q, (snapshot) => {
+        const expenses = snapshot.docs.map(doc => {
+            const data = doc.data();
+            let date = data.date;
+            if (date instanceof Timestamp) {
+                date = date.toDate();
+            }
+            return { id: doc.id, ...data, date } as Expense;
+        });
+        callback(expenses);
     });
 };
 
-export const getExpense = async (expenseId: string) => {
-    const expenseRef = doc(db, COLLECTION_NAME, expenseId);
-    const expenseSnap = await getDoc(expenseRef);
-    if (expenseSnap.exists()) {
-        const data = expenseSnap.data();
-        return {
-            ...data,
-            date: data.date instanceof Timestamp ? data.date.toDate() : data.date
-        } as Expense;
-    }
-    return null;
-};
-
-export const updateExpense = async (expenseId: string, updates: Partial<Expense>) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Must be logged in");
-
-    const expenseRef = doc(db, "expenses", expenseId);
-    await updateDoc(expenseRef, updates);
-    await logActivity('update', { ...updates, id: expenseId }, user.uid);
-};
-
-export const deleteExpense = async (expenseId: string) => {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Must be logged in");
-
-    // Fetch first to log details
-    const expenseRef = doc(db, "expenses", expenseId);
-    const snap = await getDoc(expenseRef);
-    if (snap.exists()) {
-        const data = snap.data();
-        await deleteDoc(expenseRef);
-        await logActivity('delete', { ...data, id: expenseId }, user.uid);
-    }
+export const uploadBillImage = async (file: File): Promise<string> => {
+    const storageRef = ref(storage, `bills/${Date.now()}_${file.name}`);
+    const snapshot = await uploadBytes(storageRef, file);
+    return getDownloadURL(snapshot.ref);
 };

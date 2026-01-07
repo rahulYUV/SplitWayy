@@ -1,239 +1,149 @@
-import { useState } from "react";
-import { format } from "date-fns";
-import { Receipt, User, Users, FileText, CheckCircle2, Share2, MoreVertical, Pencil, Trash2 } from "lucide-react";
-import {
-    Dialog,
-    DialogContent,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { auth } from "@/lib/firebase";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { useExpenses } from "@/context/ExpenseContext";
-import { deleteExpense } from "@/services/expenseService";
-import { shareBillViaEmail } from "@/utils/emailUtils";
-import { toast } from "sonner";
-import { AddExpenseModal } from "./AddExpenseModal";
-import CurrencyRupeeIcon from "@/components/ui/icons/currency-rupee-icon";
+import { format } from "date-fns";
+import { Calendar, User, Trash2, Edit } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useState } from "react";
+import { AddExpenseModal } from "./AddExpenseModal"; // Re-use for edit? Or just separate logic
+// Actually AddExpenseModal usually handles 'mode="edit"'. 
+// I'll assume AddExpenseModal can accept 'expenseId' or 'initialData'. 
+// Previous analysis of AddExpenseModal showed it takes 'groupId'. 
+// I'll stick to displaying details and Delete button for now, maybe Edit if easy.
 
-interface ExpenseDetailsDialogProps {
+export function ExpenseDetailsDialog({
+    expenseId,
+    isOpen,
+    onClose,
+    userName
+}: {
     expenseId: string | null;
     isOpen: boolean;
     onClose: () => void;
     userName: string;
-}
-
-export function ExpenseDetailsDialog({ expenseId, isOpen, onClose, userName }: ExpenseDetailsDialogProps) {
-    const { expenses } = useExpenses();
+}) {
+    const { expenses, removeExpense } = useExpenses();
     const [isEditing, setIsEditing] = useState(false);
 
-    const selectedExpense = expenses.find(e => e.id === expenseId);
+    if (!expenseId) return null;
 
-    if (!selectedExpense) return null;
+    const expense = expenses.find(e => e.id === expenseId);
+    if (!expense) return null;
 
     const handleDelete = async () => {
         if (confirm("Are you sure you want to delete this expense?")) {
-            await deleteExpense(selectedExpense.id);
+            await removeExpense(expense.id);
             onClose();
-            toast.success("Expense deleted");
         }
     };
 
-    const calculateShare = (amount: number, participants: string[]) => {
-        return amount / (participants.length || 1);
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="max-w-md p-0 overflow-hidden bg-white border-none shadow-2xl rounded-3xl [&>button[aria-label=Close]]:hidden">
-                <div className="bg-[#32dd9e] p-8 pb-12 text-center relative overflow-hidden">
-                    <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white/20 to-transparent opacity-50" />
-
-                    {/* Share Button */}
-                    <button
-                        onClick={() => shareBillViaEmail(selectedExpense, userName)}
-                        className="absolute top-4 left-4 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-all z-20 group/share"
-                        title="Share Bill via Email"
-                    >
-                        <Share2 className="w-5 h-5 group-hover/share:scale-110 transition-transform" />
-                    </button>
-
-                    {/* 3 Dots Menu */}
-                    <div className="absolute top-4 right-12 z-20">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <button className="p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-all">
-                                    <MoreVertical className="w-5 h-5" />
-                                </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-[180px] bg-white border-gray-100 shadow-xl rounded-xl z-[60] p-1.5">
-                                <DropdownMenuItem
+    return (<>
+        <Dialog open={isOpen} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-md bg-white rounded-3xl p-0 overflow-hidden border-orange-100">
+                <div className="bg-[#ff6d2f] p-6 text-white relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10" />
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter flex items-start justify-between gap-4 z-10">
+                            {expense.description}
+                            <div className="flex gap-2 mr-10">
+                                <Button
+                                    variant="secondary"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-full bg-white/20 hover:bg-white/30 text-white border-0"
                                     onClick={() => setIsEditing(true)}
-                                    className="gap-3 cursor-pointer text-xs font-bold uppercase tracking-widest py-3 hover:bg-blue-50 text-blue-600 focus:text-blue-700 focus:bg-blue-50 rounded-lg mb-1"
                                 >
-                                    <div className="p-1 bg-blue-100 rounded-md">
-                                        <Pencil className="w-3.5 h-3.5" />
-                                    </div>
-                                    Edit Expense
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-full bg-white/20 hover:bg-red-500 text-white border-0"
                                     onClick={handleDelete}
-                                    className="gap-3 text-red-600 focus:text-red-700 cursor-pointer text-xs font-bold uppercase tracking-widest py-3 hover:bg-red-50 focus:bg-red-50 rounded-lg"
                                 >
-                                    <div className="p-1 bg-red-100 rounded-md">
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </div>
-                                    Delete Expense
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-
-                    {/* Close Button (Custom) */}
-                    <button
-                        onClick={onClose}
-                        className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-all z-20"
-                    >
-                        <span className="sr-only">Close</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                    </button>
-
-                    <Receipt className="w-16 h-16 text-white mx-auto mb-4 relative z-10 opacity-90" />
-                    <DialogTitle className="text-2xl font-black uppercase text-white tracking-tight relative z-10">
-                        {selectedExpense.description}
-                    </DialogTitle>
-                    <div className="text-4xl font-black text-white mt-2 flex items-center justify-center gap-1 relative z-10">
-                        <CurrencyRupeeIcon size={28} color="white" />
-                        {selectedExpense.amount.toLocaleString()}
-                    </div>
-                    <p className="text-white/80 text-xs font-bold uppercase tracking-widest mt-2 relative z-10">
-                        Added by {selectedExpense.createdBy === auth.currentUser?.uid ? "You" : selectedExpense.createdBy || "Unknown"} on {format(new Date(selectedExpense.date), "MMM d, yyyy")}
-                    </p>
-
-                    {/* ZigZag / Jagged Edge Effect */}
-                    <div
-                        className="absolute bottom-0 left-0 w-full h-4"
-                        style={{
-                            background: `linear-gradient(-45deg, white 10px, transparent 10px), linear-gradient(45deg, white 10px, transparent 10px)`,
-                            backgroundSize: '20px 20px',
-                            backgroundRepeat: 'repeat-x',
-                            backgroundPosition: 'left bottom'
-                        }}
-                    />
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </DialogTitle>
+                        <div className="text-4xl font-black mt-2 z-10">₹{expense.amount.toLocaleString()}</div>
+                        <div className="flex items-center gap-2 text-white/80 text-xs font-bold uppercase tracking-widest mt-2 z-10">
+                            <Calendar className="w-3 h-3" />
+                            {format(new Date(expense.date), "MMMM dd, yyyy")}
+                        </div>
+                    </DialogHeader>
                 </div>
 
-                <ScrollArea className="max-h-[60vh]">
-                    <div className="p-6 space-y-6">
-                        {/* Payer Section */}
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-gray-400 text-xs font-bold uppercase tracking-widest">
-                                <User size={14} /> Payer Details
-                            </div>
-                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                <div className="flex items-center gap-3">
-                                    <Avatar className="w-8 h-8 border border-gray-200">
-                                        <AvatarFallback className="bg-white text-gray-900 text-xs font-bold">
-                                            {selectedExpense.paidBy.substring(0, 2).toUpperCase()}
-                                        </AvatarFallback>
-                                    </Avatar>
-                                    <span className="font-semibold text-gray-900">
-                                        {selectedExpense.paidBy === "you" || selectedExpense.paidBy === userName ? "You" : selectedExpense.paidBy} paid
-                                    </span>
-                                </div>
-                                <span className="font-bold text-gray-900 flex items-center">
-                                    <CurrencyRupeeIcon size={12} className="text-gray-400 mr-0.5" />
-                                    {selectedExpense.amount.toLocaleString()}
-                                </span>
-                            </div>
+                <div className="p-6 space-y-6">
+                    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-gray-400">
+                            <User className="w-6 h-6" />
                         </div>
-
-                        {/* Split Section */}
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-gray-400 text-xs font-bold uppercase tracking-widest">
-                                <Users size={14} /> Split with {selectedExpense.participants.map(p => p === "you" || p === userName || (p.toLowerCase() === auth.currentUser?.displayName?.toLowerCase()) ? "You" : p).join(", ")}
-                            </div>
-                            <div className="space-y-2">
-                                {selectedExpense.participants.map((person, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-3 bg-white hover:bg-gray-50 rounded-xl border border-gray-100 transition-colors">
-                                        <div className="flex items-center gap-3">
-                                            <Avatar className="w-8 h-8 border border-gray-100">
-                                                <AvatarFallback className="bg-gray-100 text-gray-600 text-[10px] font-bold">
-                                                    {person.substring(0, 2).toUpperCase()}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-semibold text-gray-900">
-                                                    {person === "you" || person === userName || (person.toLowerCase() === auth.currentUser?.displayName?.toLowerCase()) ? "You" : person}
-                                                </span>
-                                                <span className="text-[10px] text-gray-400 font-medium">owes</span>
-                                            </div>
-                                        </div>
-                                        <span className="font-bold text-gray-900 flex items-center">
-                                            <CurrencyRupeeIcon size={12} className="text-gray-400 mr-0.5" />
-                                            {calculateShare(selectedExpense.amount, selectedExpense.participants).toFixed(2)}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Paid By</span>
+                            <span className="text-lg font-bold text-gray-900">{expense.paidBy}</span>
                         </div>
-
-                        {/* Calculated Info / Summary */}
-                        {(selectedExpense.paidBy === userName || selectedExpense.paidBy === "you") && (
-                            <div className="bg-[#32dd9e]/10 p-4 rounded-xl border border-[#32dd9e]/20 flex items-start gap-3">
-                                <CheckCircle2 className="w-5 h-5 text-[#32dd9e] mt-0.5 flex-shrink-0" />
-                                <div>
-                                    <p className="text-[#32dd9e] font-bold text-sm">You paid for this</p>
-                                    <p className="text-[#32dd9e]/80 text-xs mt-1">
-                                        You are owed <span className="font-black">₹{(selectedExpense.amount - calculateShare(selectedExpense.amount, selectedExpense.participants)).toFixed(2)}</span> total.
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Bill Image */}
-                        {selectedExpense.billImageUrl && (
-                            <div className="space-y-3 pt-2">
-                                <div className="flex items-center gap-2 text-gray-400 text-xs font-bold uppercase tracking-widest">
-                                    <FileText size={14} /> Attached Bill
-                                </div>
-                                <div className="rounded-xl overflow-hidden border border-gray-200">
-                                    <img
-                                        src={selectedExpense.billImageUrl}
-                                        alt="Bill Receipt"
-                                        className="w-full h-auto object-cover hover:scale-105 transition-transform duration-500 cursor-zoom-in"
-                                        onClick={() => window.open(selectedExpense.billImageUrl, '_blank')}
-                                    />
-                                </div>
-                            </div>
-                        )}
                     </div>
-                </ScrollArea>
 
-                <DialogFooter className="p-4 bg-gray-50 border-t border-gray-100 flex justify-center">
-                    <p className="text-[10px] text-gray-400 text-center w-full">
-                        Expense ID: <span className="font-mono text-gray-300">{selectedExpense.id}</span>
-                    </p>
+                    <div className="space-y-3">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 px-1">Split Details ({expense.splitMethod})</span>
+                        <ScrollArea className="h-[120px] pr-4">
+                            <div className="space-y-2">
+                                {expense.participants.map(person => {
+                                    // Calculate share logic
+                                    let share = 0;
+                                    if (expense.splitMethod === "equally") {
+                                        share = expense.amount / expense.participants.length;
+                                    } else if (expense.splitDetails && expense.splitDetails[person]) {
+                                        const val = Number(expense.splitDetails[person]);
+                                        if (expense.splitMethod === "percentage") {
+                                            share = (expense.amount * val) / 100;
+                                        } else {
+                                            share = val;
+                                        }
+                                    }
+
+                                    return (
+                                        <div key={person} className="flex items-center justify-between text-sm">
+                                            <span className="text-gray-600 font-medium">{person}</span>
+                                            <span className="font-bold text-gray-900">₹{share.toFixed(2)}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </ScrollArea>
+                    </div>
+
+                    {expense.billImageUrl && (
+                        <div className="pt-4 border-t border-gray-100">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 block mb-3">Bill Receipt</span>
+                            <div className="rounded-2xl overflow-hidden border border-gray-200">
+                                <img src={expense.billImageUrl} alt="Bill" className="w-full h-auto max-h-[200px] object-cover" />
+                            </div>
+                            <Button variant="link" className="text-xs mt-1 h-auto p-0 text-blue-500" onClick={() => window.open(expense.billImageUrl!, "_blank")}>
+                                View Full Image
+                            </Button>
+                        </div>
+                    )}
+                </div>
+
+                <DialogFooter className="p-6 pt-0">
+                    <Button onClick={onClose} className="w-full bg-gray-100 text-gray-900 hover:bg-gray-200 font-bold rounded-xl h-12">
+                        Close
+                    </Button>
                 </DialogFooter>
-
             </DialogContent>
-
-            {/* Edit Modal (Controlled) */}
-            <AddExpenseModal
-                mode="edit"
-                initialData={selectedExpense}
-                open={isEditing}
-                onOpenChange={setIsEditing}
-                groupId={selectedExpense.groupId}
-                userName={userName}
-            />
         </Dialog>
-    );
+
+        {
+            isEditing && (
+                <AddExpenseModal
+                    open={isEditing}
+                    onOpenChange={setIsEditing}
+                    mode="edit"
+                    initialData={expense}
+                    groupId={expense.groupId || undefined}
+                    userName={userName}
+                />
+            )
+        }
+    </>);
 }

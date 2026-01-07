@@ -1,10 +1,25 @@
-import { useState } from "react";
-import { Plus, MoreVertical, History, Wallet, UserCheck, Layout, Home, Plane, Heart, Receipt, Trash2, Pencil } from "lucide-react";
+import { useState, useMemo } from "react";
+import {
+    Plus,
+    MoreVertical,
+    History,
+    Wallet,
+    UserCheck,
+    Layout,
+    Home,
+    Plane,
+    Pencil,
+    Trash2,
+    Users,
+    Heart,
+    Receipt
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Breadcrumbs } from "./Breadcrumbs";
+
 import { AddExpenseModal } from "./AddExpenseModal";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useExpenses } from "@/context/ExpenseContext";
 import { cn } from "@/lib/utils";
 import { ExpenseDetailsDialog } from "./ExpenseDetailsDialog";
@@ -14,16 +29,27 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from "@/components/ui/dialog";
 import { SettleUpModal } from "./SettleUpModal";
 import { toast } from "sonner";
+import { GroupStatsChart } from "./GroupStatsChart";
+import { GroupSpendingBarChart } from "./GroupSpendingBarChart";
+import { LiquidGlassCard } from "@/components/ui/LiquidGlassCard";
+import { deleteGroup, addUserToGroup } from "@/services/groupService";
+import { deleteExpense } from "@/services/expenseService";
+import { logActivity } from "@/services/activityService";
+import { calculateDebts } from "@/lib/debtCalculator";
 
 export function GroupView({ userName }: { userName: string }) {
     const { id } = useParams();
+    const navigate = useNavigate();
     const { groups, getGroupExpenses, getFriendBalance } = useExpenses();
     const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null);
     const [isSelectionOpen, setIsSelectionOpen] = useState(false);
-    const [settleMember, setSettleMember] = useState<{ name: string, balance: number } | null>(null);
+    const [settleMember, setSettleMember] = useState<{ name: string; balance: number } | null>(null);
+    const [newMemberName, setNewMemberName] = useState("");
+    const [newMemberEmail, setNewMemberEmail] = useState("");
+    const [isEditOpen, setIsEditOpen] = useState(false);
 
     const group = groups.find(g => g.id === id);
     // Sort expenses by date descending
@@ -32,6 +58,77 @@ export function GroupView({ userName }: { userName: string }) {
         const dateB = b.date instanceof Date ? b.date.getTime() : new Date(b.date).getTime();
         return dateB - dateA;
     });
+
+    // Calculate Debts
+    const debts = useMemo(() => calculateDebts(expenses), [expenses]);
+
+
+    // Check if group is settled (simplified)
+    const isGroupSettled = useMemo(() => {
+        if (!group || expenses.length === 0) return true;
+
+        // If there are outstanding balances shown in "Who to settle with", you can't delete.
+        // We verify this by running getFriendBalance for all members.
+        // If ANY member has a balance relative to ME, it is NOT settled for ME.
+        // Note: This logic only checks if *I* am settled. Ideally should check everyone.
+        // But for MVP data consistency, users should settle up before deleting.
+
+        const hasUnsettledDebts = group.members.some(m => {
+            if (m.name === userName || m.name === "You") return false;
+            const bal = getFriendBalance(m.name);
+            return Math.abs(bal) >= 1;
+        });
+
+        return !hasUnsettledDebts;
+    }, [group, expenses, userName, getFriendBalance]);
+
+    const handleDeleteGroup = async () => {
+        if (!group) return;
+
+        toast.promise(
+            async () => {
+                // Log Activity first
+                // Need to handle potential dates in group.createdAt
+                let createdDate = new Date();
+                try {
+                    if (group.createdAt && typeof group.createdAt.toDate === 'function') {
+                        createdDate = group.createdAt.toDate();
+                    } else if (group.createdAt instanceof Date) {
+                        createdDate = group.createdAt;
+                    }
+                } catch (e) {
+                    console.warn("Date parse error", e);
+                }
+
+                await logActivity({
+                    type: "delete_group",
+                    description: `Group "${group.name}" was deleted`,
+                    details: {
+                        groupName: group.name,
+                        deletedAt: new Date(),
+                        createdAt: createdDate,
+                        participants: group.members.map(m => m.name)
+                    },
+                    createdBy: userName
+                });
+
+                // Delete Group
+                await deleteGroup(group.id);
+
+                // Delete associated expenses
+                const deleteExpensesPromises = expenses.map(e => deleteExpense(e.id));
+                await Promise.all(deleteExpensesPromises);
+
+                // Navigate away
+                navigate("/");
+            },
+            {
+                loading: 'Deleting group...',
+                success: 'Group deleted successfully',
+                error: 'Failed to delete group'
+            }
+        );
+    };
 
     if (!group) {
         return (
@@ -42,50 +139,122 @@ export function GroupView({ userName }: { userName: string }) {
     }
 
     // Dynamic Balance Calculation for this group
-    const myNetBalance = expenses.reduce((acc, expense) => {
-        const allInvolved = ["You", ...expense.participants];
-        // If I'm not involved, skip
-        const amIInvolved = allInvolved.some(p => p === "You" || p === userName || p.toLowerCase() === "you");
-        if (!amIInvolved && expense.paidBy !== "You" && expense.paidBy !== userName && expense.paidBy.toLowerCase() !== "you") return acc;
+    const overview = expenses.reduce((acc, expense) => {
+        let efficientParticipants = [...expense.participants];
+        // Handling Legacy "You"
+        if (expense.paidBy === "You" && !efficientParticipants.includes("You")) {
+            efficientParticipants.push("You");
+        }
 
+        const amIInvolved = efficientParticipants.includes(userName) || efficientParticipants.includes("You");
+
+        const paidByMe = expense.paidBy === "You" || expense.paidBy === userName;
+
+        if (!amIInvolved && !paidByMe) return acc;
+
+        // Calculate My Share
         let myShare = 0;
-        // Simple equal split logic for now as per app convention, or use splitDetails if available
-        // Note: The context's getGroupExpenses returns expenses.
-        // We assume equal split unless splitMethod differs.
+        const totalPeople = efficientParticipants.length;
 
-        // Logic from previous implementation:
         if (expense.splitMethod === "equally") {
-            // participants list usually DOES NOT include the payer unless specified?
-            // In this app, participants = "Split with [A, B]". Payer = "C".
-            // Usually Total People = Participants + Payer (if payer is involved in split).
-            // But existing logic: "allInvolved" used "You" + participants.
-            // Let's stick to previous simpler logic:
-            myShare = expense.amount / (allInvolved.length || 1);
-        } else if (expense.splitDetails?.["You"]) {
-            myShare = (expense.amount * Number(expense.splitDetails["You"])) / 100;
+            if (amIInvolved) {
+                myShare = expense.amount / totalPeople;
+            }
         } else {
-            myShare = expense.amount / (allInvolved.length || 1);
+            myShare = 0;
+            if (expense.splitMethod === "percentage") {
+                const p1 = Number(expense.splitDetails?.[userName] || 0);
+                const p2 = Number(expense.splitDetails?.["You"] || 0);
+                myShare = (expense.amount * (p1 + p2)) / 100;
+            } else if (expense.splitMethod === "exact") {
+                const s1 = Number(expense.splitDetails?.[userName] || 0);
+                const s2 = Number(expense.splitDetails?.["You"] || 0);
+                myShare = s1 + s2;
+            }
         }
 
-        const paidByMe = expense.paidBy === "You" || expense.paidBy === userName || expense.paidBy.toLowerCase() === "you";
+        const paidAmt = paidByMe ? expense.amount : 0;
 
-        if (paidByMe) {
-            // I paid, others owe me (total - my share)
-            return acc + (expense.amount - myShare);
+        return {
+            paid: acc.paid + paidAmt,
+            share: acc.share + myShare,
+            net: acc.net + (paidAmt - myShare)
+        };
+    }, { paid: 0, share: 0, net: 0 });
+
+    const { paid: myTotalPaid, share: myTotalShare, net: myNetBalance } = overview;
+
+    // Calculate balances for each member relative to "You" (NET for this group)
+    const memberBalances = group.members
+        .filter(m => m.name !== userName && m.name !== "You")
+        .map(member => {
+            let bal = 0;
+            expenses.forEach(expense => {
+                const payer = expense.paidBy === "You" ? userName : expense.paidBy;
+                const efficientParticipants = [...expense.participants];
+                if (expense.paidBy === "You" && !efficientParticipants.includes("You")) efficientParticipants.push("You");
+
+                const amIInvolved = efficientParticipants.includes(userName) || efficientParticipants.includes("You");
+                const isMemberInvolved = efficientParticipants.includes(member.name);
+
+                if (!amIInvolved && !isMemberInvolved) return;
+
+                const paidByMe = payer === userName;
+                const paidByMember = payer === member.name;
+
+                if (!paidByMe && !paidByMember) return;
+
+                const totalPeople = efficientParticipants.length;
+                let share = 0;
+                if (expense.splitMethod === "equally") share = expense.amount / totalPeople;
+                else if (expense.splitMethod === "percentage") {
+                    if (paidByMe) {
+                        const p = Number(expense.splitDetails?.[member.name] || 0);
+                        share = (expense.amount * p) / 100;
+                    } else {
+                        const p = Number(expense.splitDetails?.[userName] || expense.splitDetails?.["You"] || 0);
+                        share = (expense.amount * p) / 100;
+                    }
+                } else {
+                    if (paidByMe) {
+                        share = Number(expense.splitDetails?.[member.name] || 0);
+                    } else {
+                        share = Number(expense.splitDetails?.[userName] || expense.splitDetails?.["You"] || 0);
+                    }
+                }
+
+                if (paidByMe && isMemberInvolved) bal += share;
+                if (paidByMember && amIInvolved) bal -= share;
+            });
+            return { name: member.name, bal };
+        })
+        .filter(d => Math.abs(d.bal) > 1);
+
+    // Chart Data Preparation
+    const spendingByPayer: Record<string, number> = {};
+    expenses.forEach(e => {
+        if (e.paidBy === "multiple" && e.payerDetails) {
+            Object.entries(e.payerDetails).forEach(([person, amount]) => {
+                const name = (person === "You" || person === userName) ? "You" : person;
+                const amt = Number(amount) || 0;
+                spendingByPayer[name] = (spendingByPayer[name] || 0) + amt;
+            });
         } else {
-            // Someone else paid, I owe my share
-            // Only if I am in participants
-
-            // Previous logic just checked "allInvolved.includes('You')" which it forcefully added.
-            // But if I am NEITHER payer NOR participant, do I owe?
-            // "You" is always in allInvolved in previous logic?
-            // Line 27: const allInvolved = ["You", ...expense.participants];
-            // Then Line 28: if (!allInvolved.includes("You")) ... (always true).
-            // This logic seems slightly flawed in original but I will preserve the *intent* of finding my balance.
-            // If I am in the group, I am likely involved.
-            return acc - myShare;
+            const name = (e.paidBy === "You" || e.paidBy === userName) ? "You" : e.paidBy;
+            spendingByPayer[name] = (spendingByPayer[name] || 0) + e.amount;
         }
-    }, 0);
+    });
+
+    const totalSpending = Object.values(spendingByPayer).reduce((a, b) => a + b, 0);
+
+    const chartData = Object.entries(spendingByPayer).map(([name, value], index) => {
+        const colors = ["#32dd9e", "#ff6d2f", "#3b82f6", "#facc15", "#a855f7", "#ec4899"];
+        return {
+            name,
+            value,
+            fill: colors[index % colors.length]
+        };
+    }).sort((a, b) => b.value - a.value);
 
     const groupTypes = {
         Home: { icon: Home, color: "text-blue-400", bg: "bg-blue-400/10" },
@@ -97,7 +266,7 @@ export function GroupView({ userName }: { userName: string }) {
     const typeConfig = groupTypes[group.type as keyof typeof groupTypes] || groupTypes.Other;
 
     return (
-        <div className="flex-1 flex flex-col p-8 w-full animate-in fade-in duration-700 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 flex flex-col p-4 md:p-8 w-full animate-in fade-in duration-700 overflow-y-auto custom-scrollbar">
             {/* 1. Header Section */}
             <div className="px-2 py-6 border-b border-gray-100 w-full mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex items-center gap-6">
@@ -105,11 +274,11 @@ export function GroupView({ userName }: { userName: string }) {
                         <typeConfig.icon size={40} className={typeConfig.color} />
                     </div>
                     <div className="flex flex-col">
-                        <Breadcrumbs userName={userName} currentPage={group.name} />
+
                         <div className="flex items-center gap-3 mt-1">
-                            <h1 className="text-4xl font-black text-black italic tracking-tighter uppercase">{group.name}</h1>
+                            <h1 className="text-2xl md:text-4xl font-black text-black italic tracking-tighter uppercase">{group.name}</h1>
                             <div className="bg-gray-100 border border-gray-200 px-3 py-1 rounded-full text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">
-                                {group.members.length + 1} People
+                                {group.members.some(m => m.name === "You" || m.name === userName) ? group.members.length : group.members.length + 1} People
                             </div>
                         </div>
                     </div>
@@ -117,17 +286,17 @@ export function GroupView({ userName }: { userName: string }) {
 
                 <div className="flex items-center gap-4">
                     <AddExpenseModal userName={userName} groupId={group.id}>
-                        <Button className="bg-[#ff6d2f] hover:bg-[#ff8552] text-white font-black uppercase italic px-10 h-16 rounded-[1.5rem] shadow-[0_8px_0_#9c3d14] active:shadow-none active:translate-y-[8px] transition-all border border-white/10 flex items-center gap-4 text-xl group">
-                            <Plus className="w-6 h-6 group-hover:rotate-90 transition-transform duration-300" />
-                            Add an expense
+                        <Button className="bg-[#ff6d2f] hover:bg-[#ff8552] text-white font-black uppercase italic px-6 md:px-10 h-12 md:h-16 rounded-[1.5rem] shadow-[0_4px_0_#9c3d14] md:shadow-[0_8px_0_#9c3d14] active:shadow-none active:translate-y-[4px] md:active:translate-y-[8px] transition-all border border-white/10 flex items-center gap-2 md:gap-4 text-sm md:text-xl group w-full md:w-auto">
+                            <Plus className="w-5 h-5 md:w-6 md:h-6 group-hover:rotate-90 transition-transform duration-300" />
+                            Add Expense
                         </Button>
                     </AddExpenseModal>
 
                     <Button
                         onClick={() => setIsSelectionOpen(true)}
-                        className="bg-[#32dd9e] hover:bg-[#32dd9e]/90 text-white font-black uppercase italic px-10 h-16 rounded-[1.5rem] shadow-[0_8px_0_#1d8a62] active:shadow-none active:translate-y-[8px] transition-all border border-black/10 flex items-center gap-4 text-xl">
-                        <UserCheck className="w-6 h-6" />
-                        Settle up
+                        className="bg-[#32dd9e] hover:bg-[#32dd9e]/90 text-white font-black uppercase italic px-6 md:px-10 h-12 md:h-16 rounded-[1.5rem] shadow-[0_4px_0_#1d8a62] md:shadow-[0_8px_0_#1d8a62] active:shadow-none active:translate-y-[4px] md:active:translate-y-[8px] transition-all border border-black/10 flex items-center gap-2 md:gap-4 text-sm md:text-xl w-full md:w-auto">
+                        <UserCheck className="w-5 h-5 md:w-6 md:h-6" />
+                        Settle
                     </Button>
 
                     <DropdownMenu>
@@ -137,45 +306,231 @@ export function GroupView({ userName }: { userName: string }) {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-[180px] bg-white border-gray-100 shadow-xl rounded-xl p-2">
-                            <DropdownMenuItem
-                                onClick={() => toast.info("Edit Group functionality coming soon!")}
-                                className="gap-2 text-blue-600 focus:text-blue-700 cursor-pointer text-xs font-bold uppercase tracking-widest py-3 hover:bg-blue-50 rounded-lg mb-1"
-                            >
-                                <Pencil className="w-4 h-4" /> Edit Group
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={() => toast.info("Delete Group functionality coming soon!")}
-                                className="gap-2 text-red-600 focus:text-red-700 cursor-pointer text-xs font-bold uppercase tracking-widest py-3 hover:bg-red-50 rounded-lg"
-                            >
-                                <Trash2 className="w-4 h-4" /> Delete Group
-                            </DropdownMenuItem>
+                            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+                                <DialogTrigger asChild>
+                                    <DropdownMenuItem
+                                        onSelect={(e) => e.preventDefault()}
+                                        className="gap-2 text-blue-600 focus:text-blue-700 cursor-pointer text-xs font-bold uppercase tracking-widest py-3 hover:bg-blue-50 rounded-lg mb-1"
+                                    >
+                                        <Pencil className="w-4 h-4" /> Edit Group
+                                    </DropdownMenuItem>
+                                </DialogTrigger>
+                                <DialogContent className="bg-white rounded-3xl p-8">
+                                    <DialogHeader>
+                                        <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter text-black">Edit Group</DialogTitle>
+                                    </DialogHeader>
+
+                                    <div className="py-2 space-y-4">
+                                        <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                            <div className="flex items-center gap-2 mb-4">
+                                                <Users className="w-4 h-4 text-[#32dd9e]" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Add New Member</span>
+                                            </div>
+                                            <div className="space-y-3">
+                                                <div>
+                                                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider pl-1">Name</label>
+                                                    <Input
+                                                        value={newMemberName}
+                                                        onChange={(e) => setNewMemberName(e.target.value)}
+                                                        placeholder="Enter name"
+                                                        className="bg-white border-gray-200 text-sm font-bold h-11"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider pl-1">Email (Optional)</label>
+                                                    <Input
+                                                        value={newMemberEmail}
+                                                        onChange={(e) => setNewMemberEmail(e.target.value)}
+                                                        placeholder="Enter email"
+                                                        className="bg-white border-gray-200 text-sm font-bold h-11"
+                                                    />
+                                                </div>
+                                                <Button
+                                                    onClick={async () => {
+                                                        if (!newMemberName.trim()) {
+                                                            toast.error("Please enter a name");
+                                                            return;
+                                                        }
+                                                        try {
+                                                            const memberToAdd: { name: string; email?: string } = {
+                                                                name: newMemberName.trim(),
+                                                            };
+                                                            if (newMemberEmail.trim()) {
+                                                                memberToAdd.email = newMemberEmail.trim();
+                                                            }
+
+                                                            await addUserToGroup(group.id, memberToAdd);
+                                                            toast.success(`${newMemberName} added to group!`);
+                                                            setNewMemberName("");
+                                                            setNewMemberEmail("");
+                                                            setIsEditOpen(false);
+                                                        } catch (error) {
+                                                            console.error("Add member error:", error);
+                                                            toast.error("Failed to add member");
+                                                        }
+                                                    }}
+                                                    className="w-full bg-black text-white font-bold uppercase tracking-widest hover:bg-[#32dd9e] h-12 rounded-xl mt-2"
+                                                >
+                                                    Add Member
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        <div className="text-center">
+                                            <span className="text-[10px] text-gray-300 font-bold uppercase tracking-widest">Only 'Add Member' is allowed currently</span>
+                                        </div>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
+                            <Dialog>
+                                <DialogTrigger asChild>
+                                    <DropdownMenuItem
+                                        onSelect={(e) => e.preventDefault()}
+                                        className="gap-2 text-red-600 focus:text-red-700 cursor-pointer text-xs font-bold uppercase tracking-widest py-3 hover:bg-red-50 rounded-lg"
+                                    >
+                                        <Trash2 className="w-4 h-4" /> Delete Group
+                                    </DropdownMenuItem>
+                                </DialogTrigger>
+                                <DialogContent className="bg-white rounded-3xl p-8">
+                                    <DialogHeader>
+                                        <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter text-red-600">Delete Group?</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="py-4 text-gray-500 font-medium">
+                                        Are you sure you want to delete <span className="font-bold text-black">{group.name}</span>?
+                                        <br /><br />
+                                        {isGroupSettled ? (
+                                            <span>This will permanently remove the group and all associated expenses. A record of this deletion will be saved in Activities.</span>
+                                        ) : (
+                                            <span className="text-red-500 font-bold">Warning: You have unsettled debts in this group! It is recommended to settle up before deleting.</span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-4 mt-4">
+                                        <DialogClose asChild>
+                                            <Button variant="outline" className="flex-1 rounded-xl font-bold uppercase h-12">Cancel</Button>
+                                        </DialogClose>
+                                        <DialogClose asChild>
+                                            <Button onClick={handleDeleteGroup} className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold uppercase h-12">Delete</Button>
+                                        </DialogClose>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
             </div>
 
+            {/* 3. Footer Stats (Mini Card) */}
+            {expenses.length > 0 && (
+                <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-bottom-10 fade-in duration-700">
+                    <LiquidGlassCard draggable={false} className="bg-white/90 rounded-3xl p-6 flex flex-col justify-center gap-1">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 relative z-30">Total Group Spending</span>
+                        <span className="text-4xl font-black text-black italic relative z-30">₹{totalSpending.toLocaleString()}</span>
+
+                        {/* Settlements List */}
+                        {debts.length > 0 && (
+                            <div className="w-full mt-6 pt-4 border-t border-gray-100 relative z-30">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Wallet className="w-3 h-3 text-[#32dd9e]" />
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Settlement Plan</span>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    {debts.map((debt, i) => (
+                                        <div key={i} className="flex items-center justify-between bg-white/60 p-3 rounded-xl border border-white shadow-sm">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-5 h-5 rounded-full bg-black text-white flex items-center justify-center text-[9px] font-bold shadow-sm">
+                                                    {debt.from.charAt(0)}
+                                                </div>
+                                                <span className="text-[10px] text-gray-600 font-medium">
+                                                    <span className="font-bold text-black">{debt.from}</span> has to pay <span className="font-bold text-black">{debt.to}</span>
+                                                </span>
+                                            </div>
+                                            <span className="text-xs font-black text-[#32dd9e]">₹{debt.amount.toLocaleString()}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </LiquidGlassCard>
+
+                    <GroupStatsChart data={chartData} totalSpending={totalSpending} />
+
+                    <LiquidGlassCard draggable={false} className={cn(
+                        "rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden bg-white/90",
+                        myNetBalance >= 0 ? "border-[#32dd9e]/30" : "border-[#ff6d2f]/30"
+                    )}>
+                        <div className="absolute top-0 right-0 p-4 opacity-10 z-0">
+                            {myNetBalance >= 0 ? <Wallet className="w-16 h-16 text-[#32dd9e]" /> : <History className="w-16 h-16 text-[#ff6d2f]" />}
+                        </div>
+
+                        <div className="space-y-3 relative z-30">
+                            <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-700">You Paid</span>
+                                <span className="text-sm font-bold text-black">₹{myTotalPaid.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-700">Your Share (Usage)</span>
+                                <span className="text-sm font-bold text-gray-500">₹{myTotalShare.toLocaleString()}</span>
+                            </div>
+
+                            {/* Breakdown List */}
+                            <div className="pt-2 flex flex-col gap-1 max-h-[80px] overflow-y-auto custom-scrollbar">
+                                {memberBalances.map(m => (
+                                    <div key={m.name} className="flex justify-between items-center text-xs">
+                                        <span className="font-semibold text-gray-600 truncate max-w-[80px]">{m.name}</span>
+                                        <span className={cn("font-bold", m.bal > 0 ? "text-[#32dd9e]" : "text-[#ff6d2f]")}>
+                                            {m.bal > 0 ? "+" : "-"}₹{Math.abs(m.bal).toFixed(0)}
+                                        </span>
+                                    </div>
+                                ))}
+                                {memberBalances.length === 0 && myNetBalance !== 0 && (
+                                    <span className="text-[9px] text-gray-300 italic">Settled via 3rd parties</span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="mt-2 pt-2 border-t border-gray-50 relative z-30">
+                            <span className={cn(
+                                "text-[9px] font-black uppercase tracking-widest block mb-1 values-center",
+                                myNetBalance >= 0 ? "text-[#32dd9e]" : "text-[#ff6d2f]"
+                            )}>Net Balance</span>
+                            <div className="flex items-baseline gap-2">
+                                <span className={cn(
+                                    "text-3xl font-black italic",
+                                    myNetBalance >= 0 ? "text-[#32dd9e]" : "text-[#ff6d2f]"
+                                )}>
+                                    {myNetBalance >= 0 ? "+" : "-"}₹{Math.abs(myNetBalance).toLocaleString()}
+                                </span>
+                                <span className={cn(
+                                    "text-[9px] font-bold uppercase tracking-wider",
+                                    myNetBalance >= 0 ? "text-[#32dd9e]/70" : "text-[#ff6d2f]/70"
+                                )}>
+                                    {myNetBalance >= 0 ? "You are owed" : "You owe"}
+                                </span>
+                            </div>
+                        </div>
+                    </LiquidGlassCard>
+                </div>
+            )}
+
+
+
+            {/* 4. Bar Chart Section (Full Width) */}
+            {expenses.length > 0 && (
+                <div className="mb-10">
+                    <GroupSpendingBarChart data={chartData} totalSpending={totalSpending} />
+                </div>
+            )}
+
             {/* 2. Content Section */}
             {expenses.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center py-20 animate-in zoom-in-95 duration-1000">
                     <div className="flex flex-col md:flex-row items-center gap-12 max-w-4xl bg-white p-12 rounded-[4rem] border border-gray-100 shadow-2xl relative overflow-hidden group">
-                        {/* Decorative Background Blur */}
                         <div className="absolute -top-24 -left-24 w-64 h-64 bg-[#ff6d2f]/10 blur-[80px] rounded-full group-hover:bg-[#ff6d2f]/20 transition-all duration-1000" />
                         <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-[#32dd9e]/5 blur-[80px] rounded-full group-hover:bg-[#32dd9e]/15 transition-all duration-1000" />
 
-                        {/* Character Placeholder (Using a stylistic SVG) */}
-                        <div className="w-64 h-64 shrink-0 relative z-10 flex items-center justify-center">
-                            <svg width="240" height="240" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-xl">
-                                <rect x="40" y="40" width="120" height="120" rx="20" fill="black" className="animate-bounce" style={{ animationDuration: '3s' }} />
-                                <path d="M70 160C70 160 80 200 100 210C120 220 140 180 140 180" stroke="black" strokeWidth="12" strokeLinecap="round" opacity="0.1" />
-                                <circle cx="85" cy="85" r="8" fill="white" />
-                                <circle cx="115" cy="85" r="8" fill="white" />
-                                <path d="M85 120C90 125 110 125 115 120" stroke="white" strokeWidth="6" strokeLinecap="round" />
-                            </svg>
-                        </div>
-
                         <div className="flex flex-col text-center md:text-left relative z-10">
-                            <h2 className="text-5xl font-black text-black italic tracking-tighter uppercase leading-none">The group has not<br />recorded any bills yet</h2>
-                            <p className="text-gray-400 text-lg font-bold uppercase tracking-widest mt-6 max-w-md">
+                            <h2 className="text-3xl md:text-5xl font-black text-black italic tracking-tighter uppercase leading-none">The group has not<br />recorded any bills yet</h2>
+                            <p className="text-gray-400 text-sm md:text-lg font-bold uppercase tracking-widest mt-6 max-w-md">
                                 Be the first to add an expense and start splitting with the gang!
                             </p>
                         </div>
@@ -183,7 +538,7 @@ export function GroupView({ userName }: { userName: string }) {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-4">
-                    <div className="text-[10px] font-black uppercase tracking-[0.5em] text-gray-400 mb-4 px-4 flex items-center gap-4">
+                    <div className="text-[10px] font-black uppercase tracking-[0.5em] text-white/90 mb-4 px-4 flex items-center gap-4">
                         <History size={12} />
                         Recent Group Activity
                     </div>
@@ -191,7 +546,7 @@ export function GroupView({ userName }: { userName: string }) {
                         <div key={expense.id}
                             onClick={() => setSelectedExpenseId(expense.id)}
                             className="bg-white border border-gray-100 hover:border-[#32dd9e]/30 hover:shadow-lg rounded-3xl p-6 transition-all group flex items-center justify-between cursor-pointer"
-                            style={{ animationDelay: `${idx * 100}ms` }}
+                            style={{ animationDelay: `${idx * 100} ms` }}
                         >
                             <div className="flex items-center gap-6">
                                 <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-400 group-hover:text-[#32dd9e] transition-colors">
@@ -214,32 +569,11 @@ export function GroupView({ userName }: { userName: string }) {
                 </div>
             )}
 
-            {/* 3. Footer Stats (Mini Card) */}
-            {expenses.length > 0 && (
-                <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white border border-gray-100 rounded-3xl p-6 flex flex-col gap-1 shadow-sm">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">Total Group Spending</span>
-                        <span className="text-3xl font-black text-black italic">₹{expenses.reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}</span>
-                    </div>
-                    <div className={cn(
-                        "rounded-3xl p-6 flex flex-col gap-1 border shadow-sm bg-white",
-                        myNetBalance >= 0
-                            ? "border-[#32dd9e]/30"
-                            : "border-[#ff6d2f]/30"
-                    )}>
-                        <span className={cn(
-                            "text-[9px] font-black uppercase tracking-widest",
-                            myNetBalance >= 0 ? "text-[#32dd9e]" : "text-[#ff6d2f]"
-                        )}>Your Net Balance</span>
-                        <span className={cn(
-                            "text-3xl font-black italic",
-                            myNetBalance >= 0 ? "text-[#32dd9e]" : "text-[#ff6d2f]"
-                        )}>
-                            {myNetBalance >= 0 ? "+" : "-"}₹{Math.abs(myNetBalance).toLocaleString()}
-                        </span>
-                    </div>
-                </div>
-            )}
+
+
+
+
+
 
             {/* Expense Details Dialog */}
             <ExpenseDetailsDialog
@@ -289,15 +623,18 @@ export function GroupView({ userName }: { userName: string }) {
                 </DialogContent>
             </Dialog>
 
-            {settleMember && (
-                <SettleUpModal
-                    isOpen={!!settleMember}
-                    onClose={() => setSettleMember(null)}
-                    friendName={settleMember.name}
-                    balance={settleMember.balance}
-                    userName={userName}
-                />
-            )}
-        </div>
+            {
+                settleMember && (
+                    <SettleUpModal
+                        isOpen={!!settleMember}
+                        onClose={() => setSettleMember(null)}
+                        friendName={settleMember.name}
+                        balance={settleMember.balance}
+                        userName={userName}
+                        groupId={group.id}
+                    />
+                )
+            }
+        </div >
     );
 }
