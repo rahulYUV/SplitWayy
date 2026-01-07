@@ -107,7 +107,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <ExpenseProvider>
+      <ExpenseProvider user={user}>
         <div className="relative flex min-h-screen w-full flex-col items-center bg-white text-black selection:bg-[#32dd9e]/20">
           <Toaster />
           {!user && (
@@ -143,7 +143,7 @@ function App() {
               <Route index element={<DashboardHome userName={firstName} />} />
               <Route path="activity" element={<RecentActivity userName={firstName} />} />
               <Route path="expenses" element={<AllExpenses userName={firstName} />} />
-              <Route path="group/:id" element={<GroupView userName={firstName} />} />
+              <Route path="group/:id" element={<GroupView userName={user?.displayName || firstName} />} />
               <Route path="friend/:id" element={<FriendView userName={firstName} />} />
             </Route>
 
