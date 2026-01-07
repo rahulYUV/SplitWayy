@@ -25,16 +25,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { ExpenseProvider } from "@/context/ExpenseContext";
 
 import { onSnapshot, doc } from "firebase/firestore";
-// ... (existing code)
-
-// Inside Routes:
-            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-            <Route path="/terms" element={<TermsConditions />} />
-            <Route path="/refund-policy" element={<RefundPolicy />} />
-            <Route path="/contact" element={<ContactUs />} />
-            <Route path="/shipping-policy" element={<ShippingPolicy />} />
-
-            <Route path="*" element={<Navigate to="/" replace />} />
 import { db } from "@/lib/firebase";
 
 function App() {
@@ -180,6 +170,8 @@ function App() {
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsConditions />} />
             <Route path="/refund-policy" element={<RefundPolicy />} />
+            <Route path="/contact" element={<ContactUs />} />
+            <Route path="/shipping-policy" element={<ShippingPolicy />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
