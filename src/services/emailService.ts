@@ -42,7 +42,7 @@ export const sendExpenseNotification = async (
         toast.dismiss("email-send");
         if (response.status === 200) {
             toast.success(`Email sent to ${toEmail}!`);
-            console.log('Email sent successfully!', response.status, response.text);
+
         } else {
             toast.error(`Email failed: ${response.text}`);
         }

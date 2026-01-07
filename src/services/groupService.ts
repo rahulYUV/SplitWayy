@@ -11,7 +11,8 @@ import {
     or,
     serverTimestamp,
     arrayUnion,
-    arrayRemove
+    arrayRemove,
+    onSnapshot
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -37,7 +38,7 @@ export interface Group {
 
 const COLLECTION_NAME = "groups";
 
-export const createGroup = async (groupData: Omit<Group, "id" | "createdAt" | "updatedAt">) => {
+export const createGroup = async (groupData: Omit<Group, "id" | "createdAt" | "updatedAt">, userId?: string) => {
     const groupRef = doc(collection(db, COLLECTION_NAME));
 
     // Ensure memberEmails is populated for searching
@@ -49,6 +50,7 @@ export const createGroup = async (groupData: Omit<Group, "id" | "createdAt" | "u
         ...groupData,
         id: groupRef.id,
         memberEmails,
+        createdBy: userId || groupData.createdBy, // Ensure createdBy is set
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
     };
@@ -132,4 +134,27 @@ export const removeUserFromGroup = async (groupId: string, member: GroupMember) 
         updateData.memberEmails = arrayRemove(member.email);
     }
     await updateDoc(groupRef, updateData);
+};
+
+export const subscribeToUserGroups = (userId: string, userEmail: string | null | undefined, callback: (groups: Group[]) => void) => {
+    let q;
+    if (userEmail) {
+        q = query(
+            collection(db, COLLECTION_NAME),
+            or(
+                where("createdBy", "==", userId),
+                where("memberEmails", "array-contains", userEmail)
+            )
+        );
+    } else {
+        q = query(collection(db, COLLECTION_NAME), where("createdBy", "==", userId));
+    }
+
+    return onSnapshot(q, (snapshot) => {
+        const groups = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as Group));
+        callback(groups);
+    });
 };
