@@ -326,9 +326,9 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
                 />
             )}
 
-            {/* 5. Footer */}
-            <div className="p-8 pb-12 w-full mt-auto">
-                <FooterSection />
+            <div className="flex flex-col items-center justify-center gap-2 opacity-30 hover:opacity-100 transition-opacity">
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-black">SplitWayy © 2026</span>
+                <span className="text-[9px] font-bold text-black/60 italic">Fairness System V2.0</span>
             </div>
         </div>
     );

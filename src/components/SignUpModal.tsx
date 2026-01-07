@@ -149,7 +149,7 @@ export function SignUpModal({ isOpen, onClose, initialMode = 'signup', onSignUpS
                                                 value={fullName}
                                                 onChange={(e) => setFullName(e.target.value)}
                                                 className="w-full h-14 border border-gray-200 rounded-lg px-4 text-xl focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm bg-white text-gray-900"
-                                                placeholder="Full Name"
+                                                placeholder="e.g. Rahul Kumar"
                                             />
                                         </div>
                                     </>
@@ -187,7 +187,7 @@ export function SignUpModal({ isOpen, onClose, initialMode = 'signup', onSignUpS
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         className="w-full h-12 border border-gray-200 rounded-lg px-4 focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all shadow-sm bg-white text-gray-900"
-                                        placeholder="email@example.com"
+                                        placeholder="e.g. razorpay_demo@splitwayy.com"
                                     />
                                 </div>
 

@@ -18,7 +18,14 @@ const FOOTER_COLUMNS = [
         color: "text-[#32dd9e]",
         hoverColor: "hover:text-[#32dd9e]",
         borderColor: "border-gray-200",
-        links: ["About", "Press", "Blog", "Jobs", "Calculators", "API"],
+        links: [
+            { label: "About", href: "#" },
+            { label: "Press", href: "#" },
+            { label: "Blog", href: "#" },
+            { label: "Jobs", href: "#" },
+            { label: "Calculators", href: "#" },
+            { label: "API", href: "#" }
+        ],
         hasBorder: true
     },
     {
@@ -26,14 +33,27 @@ const FOOTER_COLUMNS = [
         color: "text-[#ff6d2f]",
         hoverColor: "hover:text-[#ff6d2f]",
         borderColor: "border-gray-200",
-        links: ["Log in", "Sign up", "Reset password", "Settings", "SplitWayy Pro", "SplitWayy Pay"],
+        links: [
+            { label: "Log in", href: "#" },
+            { label: "Sign up", href: "#" },
+            { label: "Reset password", href: "#" },
+            { label: "Settings", href: "#" },
+            { label: "SplitWayy Pro", href: "#" },
+            { label: "SplitWayy Pay", href: "#" }
+        ],
         hasBorder: true
     },
     {
         title: "More",
         color: "text-gray-900",
         hoverColor: "hover:text-gray-900",
-        links: ["Contact us", "FAQ", "Terms of Service", "Privacy Policy"],
+        links: [
+            { label: "Contact us", href: "mailto:support@splitwayy.com" },
+            { label: "FAQ", href: "#" },
+            { label: "Terms of Service", href: "/terms" },
+            { label: "Privacy Policy", href: "/privacy-policy" },
+            { label: "Refund Policy", href: "/refund-policy" }
+        ],
         hasBorder: false
     }
 ];
@@ -63,12 +83,12 @@ export function MainFooter() {
                             <h4 className={cn("font-bold text-lg mb-6", col.color)}>{col.title}</h4>
                             <ul className="space-y-3">
                                 {col.links.map((link) => (
-                                    <li key={link}>
-                                        <a href="#" className={cn(
+                                    <li key={link.label}>
+                                        <a href={link.href} className={cn(
                                             "text-gray-500 text-[15px] transition-colors",
                                             col.hoverColor
                                         )}>
-                                            {link}
+                                            {link.label}
                                         </a>
                                     </li>
                                 ))}

@@ -16,6 +16,9 @@ import { RecentActivity } from "@/components/RecentActivity";
 import { AllExpenses } from "@/components/AllExpenses";
 import { GroupView } from "@/components/GroupView";
 import { FriendView } from "@/components/FriendView";
+import { PrivacyPolicy } from "@/pages/PrivacyPolicy";
+import { TermsConditions } from "@/pages/TermsConditions";
+import { RefundPolicy } from "@/pages/RefundPolicy";
 import { Toaster } from "@/components/ui/sonner";
 import { ExpenseProvider } from "@/context/ExpenseContext";
 
@@ -161,6 +164,10 @@ function App() {
                 <Navigate to="/" replace />
               )
             } />
+
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsConditions />} />
+            <Route path="/refund-policy" element={<RefundPolicy />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
