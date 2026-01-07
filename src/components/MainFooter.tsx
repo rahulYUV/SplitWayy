@@ -48,11 +48,12 @@ const FOOTER_COLUMNS = [
         color: "text-gray-900",
         hoverColor: "hover:text-gray-900",
         links: [
-            { label: "Contact us", href: "mailto:support@splitwayy.com" },
+            { label: "Contact Us", href: "/contact" },
             { label: "FAQ", href: "#" },
             { label: "Terms of Service", href: "/terms" },
             { label: "Privacy Policy", href: "/privacy-policy" },
-            { label: "Refund Policy", href: "/refund-policy" }
+            { label: "Refund Policy", href: "/refund-policy" },
+            { label: "Shipping Policy", href: "/shipping-policy" }
         ],
         hasBorder: false
     }
