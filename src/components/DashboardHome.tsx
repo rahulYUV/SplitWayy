@@ -9,7 +9,7 @@ import { useExpenses } from "@/context/ExpenseContext";
 import { cn } from "@/lib/utils";
 import { AddExpenseModal } from "@/components/AddExpenseModal";
 
-import { FooterSection } from "./FooterSection";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SettleUpModal } from "@/components/SettleUpModal";
 
