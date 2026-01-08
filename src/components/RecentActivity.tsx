@@ -1,17 +1,18 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Receipt, ArrowRight, Filter, Users, User, Banknote, HeartHandshake, Trash2 } from "lucide-react";
+import { Receipt, ArrowRight, Filter, Users, User as UserIcon, Banknote, HeartHandshake, Trash2, Edit } from "lucide-react";
 import CurrencyRupeeIcon from "@/components/ui/icons/currency-rupee-icon";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { useExpenses, Expense } from "@/context/ExpenseContext";
 import { formatDistanceToNow, format } from "date-fns";
 import { ExpenseDetailsDialog } from "./ExpenseDetailsDialog";
 import { cn } from "@/lib/utils";
+import { User } from "firebase/auth";
 import { subscribeToActivities, Activity } from "@/services/activityService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-export function RecentActivity({ userName }: { userName: string }) {
+export function RecentActivity({ userName, user }: { userName: string; user: User }) {
     const { expenses } = useExpenses();
     const [activities, setActivities] = useState<Activity[]>([]);
     const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null);
@@ -19,13 +20,12 @@ export function RecentActivity({ userName }: { userName: string }) {
     const [filter, setFilter] = useState<'all' | 'groups' | 'friends' | 'payments'>('all');
 
     useEffect(() => {
-        // Subscribe to activities
-        // Note: userId is passed but currently unused in service (global fetch), which is fine for now/MVP
-        const unsubscribe = subscribeToActivities((data) => {
+        // Subscribe to activities with user context for privacy
+        const unsubscribe = subscribeToActivities(user.uid, user.email, (data) => {
             setActivities(data);
         });
         return () => unsubscribe();
-    }, []);
+    }, [user.uid, user.email]);
 
     // Merge and Filter Logic
     const combinedItems = useMemo(() => {
@@ -46,7 +46,7 @@ export function RecentActivity({ userName }: { userName: string }) {
         }));
 
         const activityItems: UnifiedItem[] = activities
-            .filter(a => ['delete_group', 'delete_expense'].includes(a.type)) // Show delete activities
+            .filter(a => ['delete_group', 'delete_expense', 'update_expense'].includes(a.type)) // Show delete and update activities
             .map(a => ({
                 id: a.id,
                 date: a.createdAt,
@@ -120,7 +120,7 @@ export function RecentActivity({ userName }: { userName: string }) {
                         filter === 'friends' ? "bg-[#ff6d2f] text-white shadow-lg scale-105" : "bg-white border border-gray-100 text-gray-400 hover:text-[#ff6d2f]"
                     )}
                 >
-                    <User size={14} />
+                    <UserIcon size={14} />
                     Friends
                 </button>
                 <button
@@ -210,7 +210,14 @@ export function RecentActivity({ userName }: { userName: string }) {
                             } else {
                                 // Render Activity Item
                                 const activity = item.data as Activity;
-                                const isGroup = activity.type === 'delete_group';
+                                const isDelete = activity.type.includes('delete');
+                                // const isUpdate = activity.type === 'update_expense';
+
+                                const bgClass = isDelete ? "bg-red-50/50 border border-red-100 hover:border-red-200" : "bg-blue-50/50 border border-blue-100 hover:border-blue-200";
+                                const barColor = isDelete ? "bg-red-500" : "bg-blue-500";
+                                const iconBg = isDelete ? "bg-red-100 text-red-500 group-hover:bg-red-200" : "bg-blue-100 text-blue-500 group-hover:bg-blue-200";
+                                const pillStyle = isDelete ? "border-red-100 text-red-400" : "border-blue-100 text-blue-400";
+
                                 return (
                                     <motion.div
                                         layout
@@ -220,24 +227,29 @@ export function RecentActivity({ userName }: { userName: string }) {
                                         transition={{ delay: i * 0.03 }}
                                         key={activity.id}
                                         onClick={() => handleCardClick(item)}
-                                        className="bg-red-50/50 border border-red-100 p-5 rounded-2xl flex items-center justify-between hover:shadow-lg hover:border-red-200 transition-all cursor-pointer group relative overflow-hidden"
+                                        className={cn(
+                                            "p-5 rounded-2xl flex items-center justify-between hover:shadow-lg transition-all cursor-pointer group relative overflow-hidden",
+                                            bgClass
+                                        )}
                                     >
-                                        <div className="absolute top-0 left-0 w-1 h-full opacity-0 group-hover:opacity-100 transition-opacity bg-red-500" />
+                                        <div className={cn("absolute top-0 left-0 w-1 h-full opacity-0 group-hover:opacity-100 transition-opacity", barColor)} />
                                         <div className="flex items-center gap-5">
-                                            <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-red-100 text-red-500 group-hover:bg-red-200 transition-colors">
-                                                <Trash2 className="w-6 h-6" />
+                                            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-colors", iconBg)}>
+                                                {isDelete ? <Trash2 className="w-6 h-6" /> : <Edit className="w-6 h-6" />}
                                             </div>
                                             <div className="flex flex-col">
                                                 <span className="text-gray-900 font-bold uppercase text-sm tracking-tight group-hover:text-black transition-colors">
                                                     {activity.description}
                                                 </span>
                                                 <span className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mt-1">
-                                                    {activity.createdBy === userName ? "You" : activity.createdBy} deleted {isGroup ? "this group" : "an expense"} • {formatDistanceToNow(activity.createdAt, { addSuffix: true })}
+                                                    {activity.createdBy === userName ? "You" : activity.createdBy}
+                                                    {isDelete ? (activity.type === 'delete_group' ? " deleted this group" : " deleted an expense") : " updated this expense"}
+                                                    • {formatDistanceToNow(activity.createdAt, { addSuffix: true })}
                                                 </span>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-6">
-                                            <div className="px-3 py-1 rounded-full bg-white border border-red-100 text-[10px] font-black uppercase tracking-widest text-red-400">
+                                            <div className={cn("px-3 py-1 rounded-full bg-white border text-[10px] font-black uppercase tracking-widest", pillStyle)}>
                                                 Details
                                             </div>
                                         </div>
@@ -261,8 +273,10 @@ export function RecentActivity({ userName }: { userName: string }) {
             <Dialog open={!!selectedActivity} onOpenChange={(open) => !open && setSelectedActivity(null)}>
                 <DialogContent className="bg-white rounded-3xl p-8 max-w-md">
                     <DialogHeader>
-                        <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter text-red-500 mb-2">
-                            Group Deleted
+                        <DialogTitle className={cn("text-2xl font-black uppercase italic tracking-tighter mb-2", selectedActivity?.type.includes('delete') ? "text-red-500" : "text-blue-500")}>
+                            {selectedActivity?.type === 'delete_group' ? "Group Deleted" :
+                                selectedActivity?.type === 'delete_expense' ? "Expense Deleted" :
+                                    selectedActivity?.type === 'update_expense' ? "Expense Updated" : "Activity Details"}
                         </DialogTitle>
                     </DialogHeader>
                     {selectedActivity && selectedActivity.type === 'delete_group' && selectedActivity.details && (
@@ -356,6 +370,45 @@ export function RecentActivity({ userName }: { userName: string }) {
                             <div className="flex flex-col gap-1 pt-4 border-t border-gray-100">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Deleted By</span>
                                 <span className="text-sm font-bold text-gray-900">{selectedActivity.createdBy === userName ? "You" : selectedActivity.createdBy}</span>
+                            </div>
+                        </div>
+                    )}
+                    {selectedActivity && selectedActivity.type === 'update_expense' && selectedActivity.details && (
+                        <div className="flex flex-col gap-6">
+                            <div className="flex flex-col gap-1">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Description</span>
+                                <span className="text-xl font-bold text-black">{selectedActivity.description.replace("Updated: ", "")}</span>
+                            </div>
+
+                            <div className="flex flex-col gap-3 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Changes Log</span>
+                                {selectedActivity.details.changes?.length ? (
+                                    selectedActivity.details.changes.map((change, idx) => (
+                                        <div key={idx} className="flex flex-col gap-1 border-b border-gray-200 last:border-0 pb-2 last:pb-0">
+                                            <span className="text-xs font-bold text-gray-600 uppercase">{change.field}</span>
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <span className="text-red-400 line-through decoration-red-400/50">{String(change.oldValue)}</span>
+                                                <ArrowRight className="w-3 h-3 text-gray-400" />
+                                                <span className="text-green-600 font-black">{String(change.newValue)}</span>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <span className="text-xs text-gray-500 italic">No specific field changes recorded.</span>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Updated On</span>
+                                    <span className="text-sm font-medium text-gray-700">
+                                        {format(selectedActivity.createdAt, "MMM dd, yyyy • hh:mm a")}
+                                    </span>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Updated By</span>
+                                    <span className="text-sm font-bold text-gray-900">{selectedActivity.createdBy === userName ? "You" : selectedActivity.createdBy}</span>
+                                </div>
                             </div>
                         </div>
                     )}

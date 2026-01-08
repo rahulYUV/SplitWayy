@@ -4,6 +4,7 @@ import {
     addDoc,
     query,
     orderBy,
+    where,
     onSnapshot,
     Timestamp
 } from "firebase/firestore";
@@ -20,10 +21,13 @@ export interface Activity {
         date?: Date;
         deletedAt?: Date;
         createdAt?: Date;
+        changes?: { field: string; oldValue: any; newValue: any }[];
     };
-    createdBy: string; // userId
+    createdBy: string; // Display Name or Email (Legacy)
+    userId?: string; // The actual UID of the creator
     createdAt: Date;
     relatedGroupId?: string;
+    visibleToUserEmails?: string[]; // Array of emails who can see this activity
 }
 
 const ACTIVITY_COLLECTION = "activities";
@@ -39,12 +43,30 @@ export const logActivity = async (activityData: Omit<Activity, "id" | "createdAt
     }
 };
 
-export const subscribeToActivities = (callback: (activities: Activity[]) => void) => {
-    // Basic query for now
-    const q = query(
-        collection(db, ACTIVITY_COLLECTION),
-        orderBy("createdAt", "desc")
-    );
+export const subscribeToActivities = (userId: string | undefined, userEmail: string | null | undefined, callback: (activities: Activity[]) => void) => {
+    let q;
+
+    if (userEmail) {
+        // Filter activities where the user is in the visibility list
+        q = query(
+            collection(db, ACTIVITY_COLLECTION),
+            where("visibleToUserEmails", "array-contains", userEmail),
+            orderBy("createdAt", "desc")
+        );
+    } else if (userId) {
+        // Fallback: only show activities created by this user if no email (e.g. anonymous or missing email)
+        // Note: This misses shared activities from others, but ensures privacy.
+        q = query(
+            collection(db, ACTIVITY_COLLECTION),
+            where("userId", "==", userId),
+            orderBy("createdAt", "desc")
+        );
+    } else {
+        // No user identified? Return empty to be safe, or public activities if any.
+        // Returning empty to prevent leak.
+        callback([]);
+        return () => { };
+    }
 
     return onSnapshot(q, (snapshot) => {
         const activities = snapshot.docs.map(doc => {
@@ -57,7 +79,6 @@ export const subscribeToActivities = (callback: (activities: Activity[]) => void
             // Parse nested dates if any
             let details = data.details || {};
             if (details && typeof details === 'object') {
-                // Clone to avoid mutation issues if firestore returns frozen object? usually fine
                 details = { ...details };
                 if (details.deletedAt instanceof Timestamp) details.deletedAt = details.deletedAt.toDate();
                 if (details.createdAt instanceof Timestamp) details.createdAt = details.createdAt.toDate();
@@ -67,5 +88,9 @@ export const subscribeToActivities = (callback: (activities: Activity[]) => void
             return { id: doc.id, ...data, createdAt, details } as Activity;
         });
         callback(activities);
+    }, (error) => {
+        // Handle index errors or permission errors gracefully
+        console.warn("Activity subscription error (likely missing index or permission):", error);
+        callback([]);
     });
 };
