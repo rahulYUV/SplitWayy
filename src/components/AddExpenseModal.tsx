@@ -7,8 +7,11 @@ import { z } from "zod"
 import { Receipt, Plus, Users, Wallet, CreditCard, X, Check, IndianRupee, Calendar as CalendarIcon, UserCheck, Tag, Repeat } from "lucide-react"
 import { sendExpenseNotification } from "@/services/emailService"
 import { updateExpense } from "@/services/expenseService"
+import { logActivity } from "@/services/activityService"
+import { auth } from "@/lib/firebase"
 import { toast } from "sonner"
 import { format } from "date-fns"
+import logo from "@/assets/images/Home.png"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -39,10 +42,8 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
+import { cn, compressImage, isOnline, formatFileSize, validateImageFile } from "@/lib/utils"
 import { useExpenses } from "@/context/ExpenseContext"
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage"
-import { storage } from "@/lib/firebase"
 
 const expenseSchema = z.object({
     description: z.string().min(3, "Description must be at least 3 characters"),
@@ -67,6 +68,8 @@ interface AddExpenseModalProps {
     children?: React.ReactNode
     userName?: string
     groupId?: string | null
+    defaultParticipants?: string[]
+    hideManualParticipantEntry?: boolean
     mode?: "add" | "edit"
     initialData?: any // Expense type
     open?: boolean
@@ -80,7 +83,7 @@ const Label = ({ icon, text }: { icon: React.ReactNode, text: string }) => (
     </label>
 )
 
-export function AddExpenseModal({ children, groupId, userName, mode = "add", initialData, open: controlledOpen, onOpenChange }: AddExpenseModalProps) {
+export function AddExpenseModal({ children, groupId, userName, defaultParticipants = [], hideManualParticipantEntry = false, mode = "add", initialData, open: controlledOpen, onOpenChange }: AddExpenseModalProps) {
     const [internalOpen, setInternalOpen] = useState(false)
     const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen
 
@@ -99,6 +102,11 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
     const selectedGroup = groups.find(g => g.id === groupId)
     // Ensure "You" is always an option, even if missing from group members list (legacy data fix)
     const groupMemberNames = Array.from(new Set([...(selectedGroup?.members.map(m => m.name) || []), "You"]));
+
+    // Logic for default participants: "You" + defaultParticipants (deduplicated)
+    const initialParticipants = groupId
+        ? groupMemberNames
+        : Array.from(new Set(["You", ...defaultParticipants]));
 
     const form = useForm<ExpenseFormValues>({
         resolver: zodResolver(expenseSchema) as any,
@@ -120,7 +128,7 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
         } : {
             description: "",
             amount: "",
-            participants: groupId ? groupMemberNames : ["You"],
+            participants: initialParticipants,
             paidBy: "You",
             splitMethod: "equally",
             splitDetails: {},
@@ -167,7 +175,8 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                 form.setValue("participants", groupMemberNames)
                 form.setValue("groupId", groupId)
             } else if (!groupId && mode === "add") {
-                form.setValue("participants", ["You"])
+                const defaults = Array.from(new Set(["You", ...defaultParticipants]));
+                form.setValue("participants", defaults)
                 form.setValue("groupId", undefined)
             }
         } else {
@@ -214,16 +223,18 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
 
             if (values.splitMethod === "percentage") {
                 const totalPercent = finalParticipants.reduce((acc, name) => acc + (Number(values.splitDetails?.[name]) || 0), 0)
-                if (Math.abs(totalPercent - 100) > 0.1) {
-                    toast.error("Total percentage must add up to 100%")
+                // Stricter validation: 0.01% tolerance
+                if (Math.abs(totalPercent - 100) > 0.01) {
+                    toast.error(`Total percentage is ${totalPercent.toFixed(2)}% - must be exactly 100%`)
                     return
                 }
             }
 
             if (values.splitMethod === "exact") {
                 const totalExact = finalParticipants.reduce((acc, name) => acc + (Number(values.splitDetails?.[name]) || 0), 0)
-                if (Math.abs(totalExact - Number(values.amount)) > 0.1) {
-                    toast.error(`Total split amount (₹${totalExact}) must match expense amount (₹${values.amount})`)
+                // Stricter validation: ₹0.50 tolerance
+                if (Math.abs(totalExact - Number(values.amount)) > 0.5) {
+                    toast.error(`Total split (₹${totalExact.toFixed(2)}) must match expense (₹${Number(values.amount).toFixed(2)})`)
                     return
                 }
             }
@@ -316,24 +327,108 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
 
             if (mode === "edit" && initialData?.id) {
                 await updateExpense(initialData.id, expenseData)
+
+                // Log Changes
+                const changes: { field: string, oldValue: any, newValue: any }[] = []
+                if (initialData.description !== expenseData.description) changes.push({ field: "Description", oldValue: initialData.description, newValue: expenseData.description })
+                if (Number(initialData.amount) !== Number(expenseData.amount)) changes.push({ field: "Amount", oldValue: `₹${initialData.amount}`, newValue: `₹${expenseData.amount}` })
+
+                // Compare dates safely
+                const d1 = initialData.date instanceof Date ? initialData.date : new Date(initialData.date);
+                const d2 = expenseData.date instanceof Date ? expenseData.date : new Date(expenseData.date);
+                if (d1.toDateString() !== d2.toDateString()) {
+                    changes.push({ field: "Date", oldValue: format(d1, 'MMM dd'), newValue: format(d2, 'MMM dd') })
+                }
+
+                if (changes.length > 0) {
+                    await logActivity({
+                        type: "update_expense",
+                        description: `Updated: ${expenseData.description}`,
+                        details: {
+                            groupName: selectedGroup?.name,
+                            amount: expenseData.amount,
+                            changes: changes,
+                            date: new Date()
+                        },
+                        createdBy: userName || "You",
+                        userId: auth.currentUser?.uid,
+                        visibleToUserEmails: pEmails
+                    });
+                }
+
                 toast.success("Expense updated!")
             } else {
                 await addExpense(expenseData)
 
+                await logActivity({
+                    type: "add_expense",
+                    description: `Added: ${expenseData.description}`,
+                    details: {
+                        groupName: selectedGroup?.name,
+                        amount: expenseData.amount,
+                        paidBy: expenseData.paidBy,
+                        participants: expenseData.participants,
+                        date: new Date()
+                    },
+                    createdBy: userName || "You",
+                    userId: auth.currentUser?.uid,
+                    visibleToUserEmails: pEmails
+                });
+
+
                 if (pEmails.length > 0) {
-                    const splitAmt = Number((Number(values.amount) / (finalParticipants.length)).toFixed(2));
                     pEmails.forEach(email => {
-                        const pName = finalParticipants.find(p => p.includes(email) || friends.find(f => f.email === email)?.displayName === p) || "Friend";
+                        // 1. Identify Participant Name
+                        let pName = "Friend";
+
+                        // Check if email belongs to a friend
+                        const friendMatch = friends.find(f => f.email === email);
+                        if (friendMatch && finalParticipants.includes(friendMatch.displayName || "")) {
+                            pName = friendMatch.displayName || friendMatch.name || "Friend";
+                        }
+                        // Check group members
+                        else if (selectedGroup) {
+                            const memberMatch = selectedGroup.members.find(m => m.email === email);
+                            if (memberMatch && finalParticipants.includes(memberMatch.name)) {
+                                pName = memberMatch.name;
+                            }
+                        }
+
+                        // Check manual entry
+                        if (pName === "Friend") {
+                            const manualMatch = Object.entries(manualEmails).find(([name, e]) => e === email && finalParticipants.includes(name));
+                            if (manualMatch) pName = manualMatch[0];
+                        }
+
+                        // Fallback: If the email itself is in the participants list (unlikely based on valid chars but possible in loose logic)
+                        if (pName === "Friend" && finalParticipants.includes(email)) {
+                            pName = email;
+                        }
+
+                        // 2. Calculate Their Specific Share
+                        let myShare = 0;
+                        if (values.splitMethod === 'equally' || !values.splitMethod) {
+                            myShare = Number(values.amount) / finalParticipants.length;
+                        } else if (values.splitMethod === 'exact') {
+                            myShare = Number(values.splitDetails?.[pName]) || 0;
+                        } else if (values.splitMethod === 'percentage') {
+                            const percent = Number(values.splitDetails?.[pName]) || 0;
+                            myShare = (Number(values.amount) * percent) / 100;
+                        }
+
                         sendExpenseNotification(
                             email,
                             pName,
-                            userName || "A Friend",
+                            userName || "SplitWayy User",
                             values.description,
                             Number(values.amount),
-                            splitAmt
+                            Number(myShare.toFixed(2))
                         );
                     });
+
+                    toast.success(`Sent emails to ${pEmails.length} participants`);
                 }
+
 
                 toast.success("Expense added successfully!", {
                     description: `${values.description} - ₹${values.amount}`,
@@ -377,9 +472,9 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
             <DialogTrigger asChild>
                 {children}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl p-0 overflow-hidden bg-white border-none shadow-2xl rounded-3xl h-[85vh] flex flex-col [&>button:last-child]:hidden">
+            <DialogContent className="sm:max-w-2xl p-0 overflow-hidden bg-transparent border-none shadow-none drop-shadow-2xl h-[85vh] flex flex-col [&>button:last-child]:hidden">
                 {/* Clean Header */}
-                <div className="bg-[#32dd9e] px-8 py-5 pb-10 flex items-center justify-between shrink-0 text-white relative">
+                <div className="bg-[#32dd9e] px-8 py-5 pb-10 flex items-center justify-between shrink-0 text-white relative rounded-t-3xl">
                     <div className="flex items-center gap-3 font-semibold relative z-10">
                         <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                         </div>
@@ -388,7 +483,7 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                                 {groupId ? `Add to ${selectedGroup?.name}` : "Add New Expense"}
                             </DialogTitle>
                             <span className="text-[10px] text-white/70 uppercase tracking-widest">
-                                {mode === "edit" ? "Modify expense details" : (groupId ? "Select who's involved in this bill" : "Split bills with your gang")}
+                                {mode === "edit" ? "Modify expense details" : (groupId ? "Select who's involved in this bill" : "Split with close ones")}
                             </span>
                         </div>
                     </div>
@@ -473,64 +568,66 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                                             })
                                         ) : (
                                             <>
-                                                <div className="flex flex-col gap-2 w-full">
-                                                    <div className="flex items-end gap-2 w-full">
-                                                        <div className="flex-1 space-y-1">
-                                                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider pl-1">Name</label>
-                                                            <Input
-                                                                id="manual-name"
-                                                                placeholder="e.g. Anjali"
-                                                                className="h-10 bg-gray-50 border-gray-100 rounded-lg text-xs"
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter') {
-                                                                        e.preventDefault();
-                                                                        document.getElementById('manual-add-btn')?.click();
-                                                                    }
-                                                                }}
-                                                            />
-                                                        </div>
-                                                        <div className="flex-1 space-y-1">
-                                                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider pl-1">Email <span className="text-gray-300 font-normal">(Optional)</span></label>
-                                                            <Input
-                                                                id="manual-email"
-                                                                placeholder="anjali@gmail.com"
-                                                                className="h-10 bg-gray-50 border-gray-100 rounded-lg text-xs"
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === 'Enter') {
-                                                                        e.preventDefault();
-                                                                        document.getElementById('manual-add-btn')?.click();
-                                                                    }
-                                                                }}
-                                                            />
-                                                        </div>
-                                                        <Button
-                                                            type="button"
-                                                            id="manual-add-btn"
-                                                            onClick={() => {
-                                                                const nameInput = document.getElementById('manual-name') as HTMLInputElement;
-                                                                const emailInput = document.getElementById('manual-email') as HTMLInputElement;
-                                                                const name = nameInput.value.trim();
-                                                                const email = emailInput.value.trim();
+                                                {!hideManualParticipantEntry && (
+                                                    <div className="flex flex-col gap-2 w-full">
+                                                        <div className="flex items-end gap-2 w-full">
+                                                            <div className="flex-1 space-y-1">
+                                                                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider pl-1">Name</label>
+                                                                <Input
+                                                                    id="manual-name"
+                                                                    placeholder="e.g. Joe Root"
+                                                                    className="h-10 bg-gray-50 border-gray-100 rounded-lg text-xs"
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') {
+                                                                            e.preventDefault();
+                                                                            document.getElementById('manual-add-btn')?.click();
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <div className="flex-1 space-y-1">
+                                                                <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider pl-1">Email <span className="text-gray-300 font-normal">(Optional)</span></label>
+                                                                <Input
+                                                                    id="manual-email"
+                                                                    placeholder="joe.root@gmail.com"
+                                                                    className="h-10 bg-gray-50 border-gray-100 rounded-lg text-xs"
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter') {
+                                                                            e.preventDefault();
+                                                                            document.getElementById('manual-add-btn')?.click();
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <Button
+                                                                type="button"
+                                                                id="manual-add-btn"
+                                                                onClick={() => {
+                                                                    const nameInput = document.getElementById('manual-name') as HTMLInputElement;
+                                                                    const emailInput = document.getElementById('manual-email') as HTMLInputElement;
+                                                                    const name = nameInput.value.trim();
+                                                                    const email = emailInput.value.trim();
 
-                                                                if (name && !participants.includes(name)) {
-                                                                    toggleParticipant(name);
-                                                                    if (email) {
-                                                                        setManualEmails(prev => ({ ...prev, [name]: email }));
+                                                                    if (name && !participants.includes(name)) {
+                                                                        toggleParticipant(name);
+                                                                        if (email) {
+                                                                            setManualEmails(prev => ({ ...prev, [name]: email }));
+                                                                        }
+                                                                        nameInput.value = '';
+                                                                        emailInput.value = '';
+                                                                        nameInput.focus();
+                                                                    } else if (!name) {
+                                                                        toast.error("Please enter a name");
                                                                     }
-                                                                    nameInput.value = '';
-                                                                    emailInput.value = '';
-                                                                    nameInput.focus();
-                                                                } else if (!name) {
-                                                                    toast.error("Please enter a name");
-                                                                }
-                                                            }}
-                                                            className="h-10 w-10 bg-black hover:bg-[#32dd9e] text-white rounded-lg p-0 flex items-center justify-center shrink-0"
-                                                        >
-                                                            <Plus className="w-4 h-4" />
-                                                        </Button>
+                                                                }}
+                                                                className="h-10 w-10 bg-black hover:bg-[#32dd9e] text-white rounded-lg p-0 flex items-center justify-center shrink-0"
+                                                            >
+                                                                <Plus className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                        <p className="text-[9px] text-gray-400 pl-1">Add email to notify them instantly!</p>
                                                     </div>
-                                                    <p className="text-[9px] text-gray-400 pl-1">Add email to notify them instantly!</p>
-                                                </div>
+                                                )}
 
                                                 {/* Display added participants as chips */}
                                                 {participants.length > 0 && (
@@ -764,28 +861,91 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                                                         onChange={async (e) => {
                                                             const file = e.target.files?.[0];
                                                             if (file) {
-                                                                // Preview
-                                                                const reader = new FileReader();
-                                                                reader.onloadend = () => {
-                                                                    setBillImage(reader.result as string);
-                                                                };
-                                                                reader.readAsDataURL(file);
+                                                                // Validate file type
+                                                                if (!validateImageFile(file)) {
+                                                                    toast.error("Invalid file type! Please upload an image file (JPEG, PNG, WebP, or GIF)");
+                                                                    e.target.value = ''; // Reset input
+                                                                    return;
+                                                                }
 
-                                                                // Upload
+                                                                // Validate file size (max 5MB for faster upload)
+                                                                const maxSize = 5 * 1024 * 1024; // 5MB
+                                                                if (file.size > maxSize) {
+                                                                    toast.error(`File too large! Max size is ${formatFileSize(maxSize)}`);
+                                                                    e.target.value = ''; // Reset input
+                                                                    return;
+                                                                }
+
+                                                                // Check if online
+                                                                if (!isOnline()) {
+                                                                    toast.error("No internet connection. Please check and try again.");
+                                                                    e.target.value = ''; // Reset input
+                                                                    return;
+                                                                }
+
                                                                 setIsImageUploading(true);
+                                                                const uploadToastId = toast.loading("Compressing image...");
+
                                                                 try {
-                                                                    const storageRef = ref(storage, `expenses/${Date.now()}_${file.name}`);
-                                                                    const snapshot = await uploadBytes(storageRef, file);
-                                                                    const downloadURL = await getDownloadURL(snapshot.ref);
-                                                                    form.setValue("billImageUrl", downloadURL);
-                                                                    toast.success("Bill image uploaded!");
+                                                                    // Step 1: Compress image VERY aggressively for base64
+                                                                    // Target: < 500KB for Firestore compatibility
+                                                                    const compressedFile = await compressImage(file, 0.2, 300);
+                                                                    const savedSize = file.size - compressedFile.size;
+                                                                    console.log(`Compressed: ${formatFileSize(file.size)} → ${formatFileSize(compressedFile.size)} (saved ${formatFileSize(savedSize)})`);
+
+                                                                    // Check if compressed file is still too large
+                                                                    const maxBase64Size = 500 * 1024; // 500KB limit for base64
+                                                                    if (compressedFile.size > maxBase64Size) {
+                                                                        toast.error(`Image still too large after compression. Please use an image smaller than 2MB.`, { id: uploadToastId });
+                                                                        setBillImage(null);
+                                                                        form.setValue("billImageUrl", undefined);
+                                                                        e.target.value = '';
+                                                                        return;
+                                                                    }
+
+                                                                    toast.loading("Processing...", { id: uploadToastId });
+
+                                                                    // Step 2: Convert to base64
+                                                                    const reader = new FileReader();
+
+                                                                    reader.onloadend = () => {
+                                                                        const base64String = reader.result as string;
+
+                                                                        // Set preview
+                                                                        setBillImage(base64String);
+
+                                                                        // Save base64 string directly to form
+                                                                        // This will be saved in Firestore
+                                                                        form.setValue("billImageUrl", base64String);
+
+                                                                        toast.success(`Bill saved! (${formatFileSize(compressedFile.size)})`, { id: uploadToastId });
+                                                                        setIsImageUploading(false);
+                                                                    };
+
+                                                                    reader.onerror = () => {
+                                                                        toast.error("Failed to process image", { id: uploadToastId });
+                                                                        setBillImage(null);
+                                                                        form.setValue("billImageUrl", undefined);
+                                                                        setIsImageUploading(false);
+                                                                    };
+
+                                                                    // Read as base64
+                                                                    reader.readAsDataURL(compressedFile);
+
                                                                 } catch (error) {
-                                                                    console.error("Upload failed", error);
-                                                                    toast.error("Failed to upload image. Check storage rules.");
+                                                                    console.error("Image processing failed:", error);
+
+                                                                    let errorMessage = "Failed to process image.";
+                                                                    if (error instanceof Error) {
+                                                                        errorMessage = `Error: ${error.message}`;
+                                                                    }
+
+                                                                    toast.error(errorMessage, { id: uploadToastId });
                                                                     setBillImage(null);
                                                                     form.setValue("billImageUrl", undefined);
                                                                 } finally {
                                                                     setIsImageUploading(false);
+                                                                    e.target.value = ''; // Reset input for next upload
                                                                 }
                                                             }
                                                         }}
@@ -965,7 +1125,7 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                                     {!(paidBy === "multiple" || splitMethod === "percentage" || splitMethod === "exact") && (
                                         <div className="flex flex-col items-center justify-center py-6 text-center space-y-3">
                                             <div className="w-12 h-12 bg-[#32dd9e]/10 rounded-full flex items-center justify-center">
-                                                <Users size={20} className="text-[#32dd9e]" />
+                                                <img src={logo} alt="SplitWayy" className="w-6 h-6 opacity-80" />
                                             </div>
                                             <div>
                                                 <h4 className="text-xs font-bold text-gray-900 uppercase tracking-widest leading-none italic">Standard Split</h4>
@@ -1001,7 +1161,17 @@ export function AddExpenseModal({ children, groupId, userName, mode = "add", ini
                         </form>
                     </Form>
                 </div>
+                {/* Bottom ZigZag / Jagged Edge Effect */}
+                <div
+                    className="w-full h-4 shrink-0"
+                    style={{
+                        background: `linear-gradient(135deg, white 8px, transparent 8px), linear-gradient(225deg, white 8px, transparent 8px)`,
+                        backgroundSize: '16px 16px',
+                        backgroundPosition: 'left top',
+                        backgroundRepeat: 'repeat-x'
+                    }}
+                />
             </DialogContent>
-        </Dialog>
+        </Dialog >
     )
 }
