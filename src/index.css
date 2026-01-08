@@ -219,17 +219,122 @@ body {
       stroke: #32dd9e;
     }
 
-    /* Green */
   }
 }
 
+
+
+/* ============================================
+   CUSTOM SCROLLBAR STYLES
+   ============================================ */
+
+/* Modern Custom Scrollbar for Webkit browsers (Chrome, Safari, Edge) */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: linear-gradient(to bottom, #f9fafb, #f3f4f6);
+  border-radius: 100px;
+  margin: 4px 0;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #ff6d2f, #ff8552);
+  border-radius: 100px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(255, 109, 47, 0.2);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #ff8552, #ffaa7f);
+  box-shadow: 0 2px 8px rgba(255, 109, 47, 0.4);
+  transform: scaleX(1.1);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(135deg, #ff6d2f, #ff5522);
+}
+
+/* Alternative Dark Theme Scrollbar */
+.custom-scrollbar-dark::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar-dark::-webkit-scrollbar-track {
+  background: #1f2937;
+  border-radius: 100px;
+  margin: 4px 0;
+}
+
+.custom-scrollbar-dark::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #374151, #4b5563);
+  border-radius: 100px;
+  transition: all 0.3s ease;
+}
+
+.custom-scrollbar-dark::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #4b5563, #6b7280);
+}
+
+/* Minimal Scrollbar */
+.custom-scrollbar-minimal::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar-minimal::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar-minimal::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.4);
+  border-radius: 100px;
+  transition: all 0.2s ease;
+}
+
+.custom-scrollbar-minimal::-webkit-scrollbar-thumb:hover {
+  background: rgba(107, 114, 128, 0.6);
+}
+
+/* Firefox Scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #ff6d2f #f3f4f6;
+}
+
+.custom-scrollbar-dark {
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 #1f2937;
+}
+
+.custom-scrollbar-minimal {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
+}
 
 
 @layer base {
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Autofill Override */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px #f9fafb inset !important;
+  -webkit-text-fill-color: black !important;
+}
+
+input:focus:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 30px white inset !important;
 }

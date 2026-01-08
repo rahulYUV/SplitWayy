@@ -59,8 +59,29 @@ export function GroupView({ userName }: { userName: string }) {
         return dateB - dateA;
     });
 
+    // Normalize expenses for debt calculation to merge "You" and "userName"
+    const normalizedExpenses = useMemo(() => {
+        return expenses.map(e => {
+            const normalize = (name: string) => (name === "You" || name === userName) ? userName : name;
+
+            return {
+                ...e,
+                paidBy: normalize(e.paidBy),
+                participants: e.participants.map(normalize),
+                payerDetails: e.payerDetails ? Object.entries(e.payerDetails).reduce((acc, [key, val]) => {
+                    acc[normalize(key)] = val;
+                    return acc;
+                }, {} as Record<string, any>) : undefined,
+                splitDetails: e.splitDetails ? Object.entries(e.splitDetails).reduce((acc, [key, val]) => {
+                    acc[normalize(key)] = val;
+                    return acc;
+                }, {} as Record<string, any>) : undefined
+            };
+        });
+    }, [expenses, userName]);
+
     // Calculate Debts
-    const debts = useMemo(() => calculateDebts(expenses), [expenses]);
+    const debts = useMemo(() => calculateDebts(normalizedExpenses), [normalizedExpenses]);
 
 
     // Check if group is settled (simplified)
@@ -157,7 +178,7 @@ export function GroupView({ userName }: { userName: string }) {
         const totalPeople = efficientParticipants.length;
 
         if (expense.splitMethod === "equally") {
-            if (amIInvolved) {
+            if (amIInvolved && totalPeople > 0) {
                 myShare = expense.amount / totalPeople;
             }
         } else {
@@ -206,7 +227,7 @@ export function GroupView({ userName }: { userName: string }) {
 
                 const totalPeople = efficientParticipants.length;
                 let share = 0;
-                if (expense.splitMethod === "equally") share = expense.amount / totalPeople;
+                if (expense.splitMethod === "equally" && totalPeople > 0) share = expense.amount / totalPeople;
                 else if (expense.splitMethod === "percentage") {
                     if (paidByMe) {
                         const p = Number(expense.splitDetails?.[member.name] || 0);

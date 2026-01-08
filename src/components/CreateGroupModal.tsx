@@ -4,7 +4,7 @@ import React, { useState } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, useFieldArray } from "react-hook-form"
 import { z } from "zod"
-import { Users, X, Plus, Home, Plane, Heart, Layout, Check, Sparkles, Mail } from "lucide-react"
+import { Users, X, Plus, Home, Plane, Heart, Layout, Sparkles, Mail, ArrowRight, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -53,7 +53,6 @@ export function CreateGroupModal({ children }: CreateGroupModalProps) {
     const [groupIcon, setGroupIcon] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const { addGroup } = useExpenses()
-    // ... (rest of local state)
 
     const form = useForm<GroupFormValues>({
         resolver: zodResolver(groupSchema),
@@ -72,7 +71,6 @@ export function CreateGroupModal({ children }: CreateGroupModalProps) {
 
     const onSubmit = async (values: GroupFormValues) => {
         setIsLoading(true)
-        // Clean up empty emails
         const cleanedMembers = values.members.map(m => {
             const member: any = { name: m.name };
             if (m.email && m.email.trim()) {
@@ -111,10 +109,10 @@ export function CreateGroupModal({ children }: CreateGroupModalProps) {
     }
 
     const groupTypes = [
-        { value: "Home", icon: Home, label: "Home" },
-        { value: "Trip", icon: Plane, label: "Trip" },
-        { value: "Couple", icon: Heart, label: "Couple" },
-        { value: "Other", icon: Layout, label: "Other" },
+        { value: "Home", icon: Home, label: "Home", gradient: "from-blue-400 to-blue-600" },
+        { value: "Trip", icon: Plane, label: "Trip", gradient: "from-purple-400 to-purple-600" },
+        { value: "Couple", icon: Heart, label: "Couple", gradient: "from-pink-400 to-pink-600" },
+        { value: "Other", icon: Layout, label: "Other", gradient: "from-gray-400 to-gray-600" },
     ]
 
     return (
@@ -122,45 +120,75 @@ export function CreateGroupModal({ children }: CreateGroupModalProps) {
             <DialogTrigger asChild>
                 {children}
             </DialogTrigger>
-            <DialogContent className="max-w-2xl bg-white border-none rounded-[2.5rem] p-0 overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-                {/* Visual Header */}
-                <div className="bg-black px-10 py-8 flex items-center justify-between text-white shrink-0">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-[#32dd9e] rounded-2xl flex items-center justify-center rotate-3 shadow-lg shadow-[#32dd9e]/20">
-                            <Users className="w-6 h-6 text-black" />
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] text-[#32dd9e] font-black uppercase tracking-[0.3em]">Phase 01</span>
-                            <DialogTitle className="text-2xl font-black italic uppercase tracking-tight text-white leading-none mt-1">Start a new group</DialogTitle>
-                        </div>
+            <DialogContent className="max-w-3xl bg-white border-none rounded-3xl p-0 overflow-hidden shadow-2xl flex flex-col max-h-[90vh] [&>button]:hidden">
+                {/* Modern Header with Gradient */}
+                <div className="relative bg-gradient-to-br from-[#ff6d2f] via-[#ff8552] to-[#ffaa7f] px-8 md:px-10 py-8 md:py-10 text-white shrink-0">
+                    {/* Animated background patterns */}
+                    <div className="absolute inset-0 opacity-10">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl animate-pulse"></div>
+                        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1s' }}></div>
                     </div>
-                    <button onClick={() => setOpen(false)} className="bg-white/10 hover:bg-white/20 p-2.5 rounded-full transition-all active:scale-90">
-                        <X className="w-5 h-5 text-white" />
-                    </button>
+
+                    <div className="relative z-10 flex items-start justify-between">
+                        <div className="flex items-start gap-4 md:gap-5">
+                            <div className="w-14 h-14 md:w-16 md:h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-xl shadow-black/10">
+                                <Users className="w-7 h-7 md:w-8 md:h-8 text-white" />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[10px] md:text-xs text-white/80 font-bold uppercase tracking-[0.3em] mb-2">Phase 01</span>
+                                <DialogTitle className="text-2xl md:text-3xl lg:text-4xl font-black text-white leading-tight tracking-tight">
+                                    Start a New Group
+                                </DialogTitle>
+                                <p className="text-sm text-white/70 mt-2 hidden sm:block">Create and manage shared expenses easily</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setOpen(false)}
+                            className="bg-white/10 hover:bg-white/20 backdrop-blur-sm p-2.5 rounded-xl transition-all active:scale-90"
+                        >
+                            <X className="w-5 h-5 text-white" />
+                        </button>
+                    </div>
+
+                    {/* ZigZag Bottom Edge (Receipt Style) */}
+                    <div
+                        className="absolute bottom-0 left-0 w-full h-3 z-20"
+                        style={{
+                            background: "linear-gradient(45deg, transparent 33.33%, #ffffff 33.33%, #ffffff 66.66%, transparent 66.66%), linear-gradient(-45deg, transparent 33.33%, #ffffff 33.33%, #ffffff 66.66%, transparent 66.66%)",
+                            backgroundSize: "16px 32px",
+                            backgroundPosition: "0 16px",
+                            backgroundRepeat: "repeat-x"
+                        }}
+                    />
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto px-6 md:px-10 py-8 md:py-10 custom-scrollbar">
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10">
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 md:space-y-10">
 
                             {/* Group Name Section */}
                             <div className="space-y-4">
-                                <label className="text-[10px] font-black uppercase tracking-[0.4em] text-black/30 flex items-center gap-2">
-                                    <Sparkles size={12} className="text-[#32dd9e]" />
-                                    The identity
+                                <label className="text-xs font-bold uppercase tracking-wider text-[#ff6d2f] flex items-center gap-2">
+                                    <Sparkles size={14} className="text-[#ff6d2f]" />
+                                    The Identity
                                 </label>
                                 <FormField
                                     control={form.control}
                                     name="name"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-3xl font-black text-black tracking-tighter leading-none mb-4 block">My group shall be called...</FormLabel>
+                                            <FormLabel className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight leading-tight mb-3 block">
+                                                My group shall be called...
+                                            </FormLabel>
                                             <FormControl>
-                                                <Input
-                                                    placeholder="e.g. FunkyTown"
-                                                    className="h-16 text-2xl font-bold bg-gray-50 border-none rounded-2xl px-6 focus:ring-2 focus:ring-[#32dd9e] transition-all placeholder:text-gray-200"
-                                                    {...field}
-                                                />
+                                                <div className="relative group">
+                                                    <Input
+                                                        placeholder="e.g., Beach Vacation Squad"
+                                                        className="h-14 md:h-16 text-lg md:text-xl font-semibold bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-2xl px-6 focus:border-[#ff6d2f] focus:ring-4 focus:ring-[#ff6d2f]/10 transition-all placeholder:text-gray-300 shadow-sm"
+                                                        {...field}
+                                                    />
+                                                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#ff6d2f]/0 via-[#ff6d2f]/5 to-[#ff6d2f]/0 opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
+                                                </div>
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -171,22 +199,35 @@ export function CreateGroupModal({ children }: CreateGroupModalProps) {
                             {/* Members Section */}
                             <div className="space-y-6">
                                 <div className="flex items-center justify-between">
-                                    <label className="text-[10px] font-black uppercase tracking-[0.4em] text-black/30">Group Members</label>
-                                    <div className="text-[9px] font-bold text-gray-400 italic">Tip: You're automatically included!</div>
+                                    <label className="text-xs font-bold uppercase tracking-wider text-gray-700 flex items-center gap-2">
+                                        <UserPlus size={14} />
+                                        Group Members
+                                    </label>
+                                    <div className="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                                        <span className="hidden sm:inline">💡 </span>You're auto-included!
+                                    </div>
                                 </div>
 
                                 <div className="space-y-3">
-                                    <div className="flex items-center gap-3 bg-gray-50/50 p-4 rounded-2xl border border-gray-100 opacity-60">
-                                        <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white text-xs font-black">YU</div>
+                                    {/* Current User Card */}
+                                    <div className="relative flex items-center gap-3 bg-gradient-to-r from-[#ff6d2f]/10 to-[#ff8552]/10 border-2 border-[#ff6d2f]/20 p-4 md:p-5 rounded-2xl">
+                                        <div className="absolute top-2 right-2 bg-[#ff6d2f] text-white text-[9px] font-bold px-2 py-0.5 rounded-full">OWNER</div>
+                                        <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-[#ff6d2f] to-[#ff8552] rounded-xl flex items-center justify-center text-white text-sm md:text-base font-black shadow-lg">
+                                            YU
+                                        </div>
                                         <div className="flex flex-col">
-                                            <span className="text-xs font-bold text-black">You</span>
-                                            <span className="text-[10px] text-gray-400">Owner</span>
+                                            <span className="text-sm md:text-base font-bold text-gray-900">You</span>
+                                            <span className="text-xs text-gray-500">Group creator</span>
                                         </div>
                                     </div>
 
+                                    {/* Member Input Fields */}
                                     {fields.map((field, index) => (
-                                        <div key={field.id} className="group flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <div
+                                            key={field.id}
+                                            className="group flex items-center gap-2 md:gap-3 animate-in fade-in slide-in-from-top-4 duration-300 bg-white border-2 border-gray-100 hover:border-gray-200 rounded-2xl p-3 md:p-4 transition-all"
+                                        >
+                                            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
                                                 <FormField
                                                     control={form.control}
                                                     name={`members.${index}.name`}
@@ -195,11 +236,11 @@ export function CreateGroupModal({ children }: CreateGroupModalProps) {
                                                             <FormControl>
                                                                 <div className="relative">
                                                                     <Input
-                                                                        placeholder="Name"
-                                                                        className="h-12 bg-gray-50 border-none rounded-xl pl-10 text-xs font-bold focus:bg-white"
+                                                                        placeholder="Friend's name"
+                                                                        className="h-11 md:h-12 bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-3 text-sm font-medium focus:bg-white focus:border-[#ff6d2f] focus:ring-2 focus:ring-[#ff6d2f]/10 transition-all"
                                                                         {...field}
                                                                     />
-                                                                    <Users className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                                                                    <Users className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                                                 </div>
                                                             </FormControl>
                                                         </FormItem>
@@ -213,11 +254,11 @@ export function CreateGroupModal({ children }: CreateGroupModalProps) {
                                                             <FormControl>
                                                                 <div className="relative">
                                                                     <Input
-                                                                        placeholder="Email (Optional)"
-                                                                        className="h-12 bg-gray-50 border-none rounded-xl pl-10 text-xs font-bold focus:bg-white"
+                                                                        placeholder="email@example.com"
+                                                                        className="h-11 md:h-12 bg-gray-50 border border-gray-200 rounded-xl pl-10 pr-3 text-sm font-medium focus:bg-white focus:border-[#ff6d2f] focus:ring-2 focus:ring-[#ff6d2f]/10 transition-all"
                                                                         {...field}
                                                                     />
-                                                                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                                                                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                                                                 </div>
                                                             </FormControl>
                                                         </FormItem>
@@ -227,46 +268,51 @@ export function CreateGroupModal({ children }: CreateGroupModalProps) {
                                             <button
                                                 type="button"
                                                 onClick={() => remove(index)}
-                                                className="w-10 h-10 border border-gray-100 rounded-xl flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-red-50 hover:border-red-100 transition-all opacity-0 group-hover:opacity-100 shrink-0"
+                                                className="w-10 h-10 md:w-11 md:h-11 border-2 border-gray-100 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 hover:border-red-200 transition-all opacity-0 group-hover:opacity-100 shrink-0"
                                             >
                                                 <X size={16} />
                                             </button>
                                         </div>
                                     ))}
 
+                                    {/* Add Person Button */}
                                     <Button
                                         type="button"
                                         variant="outline"
                                         onClick={() => append({ name: "", email: "" })}
-                                        className="w-full h-12 border-dashed border-2 border-gray-100 rounded-xl text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#32dd9e] hover:border-[#32dd9e] hover:bg-[#32dd9e]/5 transition-all gap-2"
+                                        className="w-full h-12 md:h-14 border-2 border-dashed border-gray-200 rounded-2xl text-xs md:text-sm font-bold uppercase tracking-wider text-gray-500 hover:text-[#ff6d2f] hover:border-[#ff6d2f] hover:bg-[#ff6d2f]/5 transition-all gap-2 shadow-sm hover:shadow-md"
                                     >
-                                        <Plus size={14} />
-                                        Add a person
+                                        <Plus size={16} className="shrink-0" />
+                                        <span className="hidden sm:inline">Add Another Person</span>
+                                        <span className="sm:hidden">Add Person</span>
                                     </Button>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                            {/* Type and Icon Section */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                                 {/* Type Section */}
                                 <div className="space-y-4">
-                                    <label className="text-[10px] font-black uppercase tracking-[0.4em] text-black/30">Group Type</label>
+                                    <label className="text-xs font-bold uppercase tracking-wider text-gray-700">Group Type</label>
                                     <FormField
                                         control={form.control}
                                         name="type"
                                         render={({ field }) => (
                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <SelectTrigger className="h-14 border-none bg-gray-50 rounded-2xl px-5 text-xs font-bold shadow-sm">
+                                                <SelectTrigger className="h-14 md:h-16 border-2 border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl px-5 text-sm font-semibold shadow-sm hover:border-gray-300 transition-all">
                                                     <SelectValue />
                                                 </SelectTrigger>
-                                                <SelectContent className="rounded-2xl border-none shadow-2xl p-2">
+                                                <SelectContent className="rounded-2xl border-none shadow-2xl p-2 bg-white">
                                                     {groupTypes.map(type => (
                                                         <SelectItem
                                                             key={type.value}
                                                             value={type.value}
-                                                            className="rounded-xl h-11 text-xs font-medium focus:bg-[#32dd9e]/10 focus:text-[#32dd9e]"
+                                                            className="rounded-xl h-12 text-sm font-medium focus:bg-gradient-to-r focus:from-[#ff6d2f]/10 focus:to-[#ff8552]/10 focus:text-[#ff6d2f] mb-1"
                                                         >
                                                             <div className="flex items-center gap-3">
-                                                                <type.icon size={14} />
+                                                                <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${type.gradient} flex items-center justify-center text-white`}>
+                                                                    <type.icon size={16} />
+                                                                </div>
                                                                 {type.label}
                                                             </div>
                                                         </SelectItem>
@@ -279,15 +325,18 @@ export function CreateGroupModal({ children }: CreateGroupModalProps) {
 
                                 {/* Group Icon Upload */}
                                 <div className="space-y-4">
-                                    <label className="text-[10px] font-black uppercase tracking-[0.4em] text-black/30">Group Icon (Optional)</label>
+                                    <label className="text-xs font-bold uppercase tracking-wider text-gray-700">Group Icon <span className="text-gray-400">(Optional)</span></label>
                                     <div className="relative">
                                         {!groupIcon ? (
                                             <label
                                                 htmlFor="group-icon-upload"
-                                                className="flex flex-col items-center justify-center h-32 w-32 bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl hover:border-[#32dd9e] hover:bg-[#32dd9e]/5 transition-all cursor-pointer group"
+                                                className="flex flex-col items-center justify-center h-32 w-full md:h-36 bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-200 rounded-2xl hover:border-[#ff6d2f] hover:from-[#ff6d2f]/5 hover:to-[#ff8552]/5 transition-all cursor-pointer group"
                                             >
-                                                <Layout className="w-8 h-8 text-gray-300 group-hover:text-[#32dd9e] mb-2" />
-                                                <span className="text-[9px] text-gray-400 group-hover:text-[#32dd9e] font-bold text-center px-2">Click to upload<br />512x512 recommended</span>
+                                                <div className="w-12 h-12 bg-gradient-to-br from-gray-200 to-gray-300 rounded-xl flex items-center justify-center mb-2 group-hover:from-[#ff6d2f] group-hover:to-[#ff8552] transition-all">
+                                                    <Layout className="w-6 h-6 text-gray-500 group-hover:text-white transition-colors" />
+                                                </div>
+                                                <span className="text-sm font-semibold text-gray-600 group-hover:text-[#ff6d2f]">Click to upload</span>
+                                                <span className="text-xs text-gray-400 mt-1">512x512 recommended</span>
                                                 <input
                                                     id="group-icon-upload"
                                                     type="file"
@@ -307,40 +356,52 @@ export function CreateGroupModal({ children }: CreateGroupModalProps) {
                                                 />
                                             </label>
                                         ) : (
-                                            <div className="relative h-32 w-32 bg-gray-50 border-2 border-gray-200 rounded-2xl overflow-hidden group">
+                                            <div className="relative h-32 md:h-36 w-full bg-gray-50 border-2 border-gray-200 rounded-2xl overflow-hidden group shadow-lg">
                                                 <img src={groupIcon} alt="Group icon preview" className="w-full h-full object-cover" />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setGroupIcon(null);
-                                                        form.setValue("groupIcon", undefined);
-                                                    }}
-                                                    className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                                >
-                                                    <X className="w-3 h-3" />
-                                                </button>
+                                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setGroupIcon(null);
+                                                            form.setValue("groupIcon", undefined);
+                                                        }}
+                                                        className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                        Remove
+                                                    </button>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Final Save */}
-                            <div className="pt-6 border-t border-gray-100 flex gap-4">
+                            {/* Action Buttons */}
+                            <div className="pt-6 border-t border-gray-100 flex flex-col sm:flex-row gap-3 md:gap-4">
                                 <Button
                                     type="button"
                                     variant="ghost"
                                     onClick={() => setOpen(false)}
-                                    className="h-14 flex-1 rounded-2xl text-xs font-black uppercase tracking-widest text-gray-400"
+                                    className="h-12 md:h-14 flex-1 rounded-2xl text-sm font-bold uppercase tracking-wider text-gray-500 hover:bg-gray-100 order-2 sm:order-1"
                                 >
                                     Cancel
                                 </Button>
                                 <Button
                                     disabled={isLoading}
-                                    className="h-14 flex-[2] bg-black hover:bg-black/90 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl flex items-center justify-center gap-3 group transition-all"
+                                    className="h-12 md:h-14 flex-[2] bg-gradient-to-r from-[#ff6d2f] to-[#ff8552] hover:from-[#ff8552] hover:to-[#ffaa7f] text-white rounded-2xl text-sm font-bold uppercase tracking-wider shadow-xl hover:shadow-2xl hover:shadow-[#ff6d2f]/20 flex items-center justify-center gap-3 group transition-all order-1 sm:order-2"
                                 >
-                                    {isLoading ? "Creating..." : "Create Group Now"}
-                                    {!isLoading && <Check className="w-4 h-4 group-hover:scale-125 transition-transform text-[#32dd9e]" />}
+                                    {isLoading ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                            Creating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            Create Group Now
+                                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                        </>
+                                    )}
                                 </Button>
                             </div>
                         </form>

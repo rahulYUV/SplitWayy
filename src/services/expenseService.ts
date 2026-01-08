@@ -5,11 +5,9 @@ import {
     updateDoc,
     doc,
     deleteDoc,
-    getDocs,
     query,
     where,
     onSnapshot,
-    orderBy,
     Timestamp
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -26,6 +24,7 @@ export interface Expense {
     payerDetails?: Record<string, number | string>;
     date: Date | string;
     category?: string;
+    notes?: string;
     billImageUrl?: string | null;
     groupId: string | null;
     createdBy: string;
@@ -67,27 +66,29 @@ export const deleteExpense = async (id: string) => {
     await deleteDoc(docRef);
 };
 
-export const getExpenses = async () => {
-    // Ideally filter by user participation
-    const q = query(collection(db, EXPENSES_COLLECTION), orderBy("date", "desc"));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
-};
+// UNSAFE: Global fetch without user scope. Do not use.
+// export const getExpenses = async () => {
+//     // Ideally filter by user participation
+//     const q = query(collection(db, EXPENSES_COLLECTION), orderBy("date", "desc"));
+//     const querySnapshot = await getDocs(q);
+//     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Expense));
+// };
 
-export const subscribeToExpenses = (callback: (expenses: Expense[]) => void) => {
-    const q = query(collection(db, EXPENSES_COLLECTION));
-    return onSnapshot(q, (snapshot) => {
-        const expenses = snapshot.docs.map(doc => {
-            const data = doc.data();
-            let date = data.date;
-            if (date instanceof Timestamp) {
-                date = date.toDate();
-            }
-            return { id: doc.id, ...data, date } as Expense;
-        });
-        callback(expenses);
-    });
-};
+// UNSAFE: Global subscription without user scope. Do not use.
+// export const subscribeToExpenses = (callback: (expenses: Expense[]) => void) => {
+//     const q = query(collection(db, EXPENSES_COLLECTION));
+//     return onSnapshot(q, (snapshot) => {
+//         const expenses = snapshot.docs.map(doc => {
+//             const data = doc.data();
+//             let date = data.date;
+//             if (date instanceof Timestamp) {
+//                 date = date.toDate();
+//             }
+//             return { id: doc.id, ...data, date } as Expense;
+//         });
+//         callback(expenses);
+//     });
+// };
 
 export const subscribeToUserExpenses = (userId: string, userEmail: string | null | undefined, callback: (expenses: Expense[]) => void) => {
     let q;

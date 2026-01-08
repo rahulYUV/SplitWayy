@@ -4,8 +4,12 @@ import { Button } from "@/components/ui/button";
 import CurrencyRupeeIcon from "@/components/ui/icons/currency-rupee-icon";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { AddExpenseModal } from "./AddExpenseModal";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useExpenses, Expense } from "@/context/ExpenseContext";
+import { deleteFriend } from "@/services/friendService";
+import { deleteExpense } from "@/services/expenseService"; // Added import
+import { logActivity } from "@/services/activityService";
+import { auth } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 
 import { ExpenseDetailsDialog } from "./ExpenseDetailsDialog";
@@ -28,7 +32,8 @@ interface FriendViewProps {
 
 export function FriendView({ friendName, userName }: FriendViewProps) {
     const { id } = useParams();
-    const { getFriendBalance, friends, expenses } = useExpenses();
+    const navigate = useNavigate();
+    const { getFriendBalance, friends, expenses, groups } = useExpenses();
     const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null);
     const [isSettleUpOpen, setIsSettleUpOpen] = useState(false);
 
@@ -62,6 +67,85 @@ export function FriendView({ friendName, userName }: FriendViewProps) {
         setSelectedExpenseId(expense.id);
     };
 
+    const handleDeleteFriend = async () => {
+        if (Math.abs(balance) > 0.5) {
+            toast.error("Cannot delete pending friend: Please settle existing balance first.", {
+                description: (
+                    <span className="text-gray-600 font-medium">
+                        You have a remaining balance of ₹{Math.abs(balance).toFixed(3)}
+                    </span>
+                )
+            });
+            return;
+        }
+
+        // 1. Check Group Membership (BLOCKING)
+        const linkedGroups = groups.filter(g =>
+            g.members.some(m => m.name.toLowerCase() === displayName.toLowerCase())
+        );
+
+        if (linkedGroups.length > 0) {
+            const groupNames = linkedGroups.map(g => g.name).join(", ");
+            toast.error(`Cannot delete ${displayName}`, {
+                description: `They are a member of the following groups: ${groupNames}. Please remove them from the group(s) first.`
+            });
+            return;
+        }
+
+        // 2. Handle Associated Expenses (CONFIRM & DELETE)
+        // Combine active and orphan expenses - we delete ALL if confirmed.
+        if (friendExpenses.length > 0) {
+            const confirmExpenses = window.confirm(
+                `${displayName} is involved in ${friendExpenses.length} expense(s). Deleting this friend will PERMANENTLY DELETE these transactions.\n\nAre you sure you want to proceed?`
+            );
+            if (!confirmExpenses) return;
+
+            try {
+                const toastId = toast.loading("Deleting expenses...");
+                await Promise.all(friendExpenses.map(exp => deleteExpense(exp.id)));
+                toast.dismiss(toastId);
+                toast.success(`Deleted ${friendExpenses.length} associated expenses.`);
+            } catch (error) {
+                console.error("Failed to delete expenses", error);
+                toast.error("Failed to delete associated expenses. Please try again.");
+                return;
+            }
+        } else {
+            // Confirm deletion even if no expenses, just to be safe
+            const confirm = window.confirm(`Are you sure you want to delete ${displayName}? This action cannot be undone.`);
+            if (!confirm) return;
+        }
+
+        // 3. Delete Friend Document (if it exists)
+        if (friendFromContext?.id) {
+            try {
+                await deleteFriend(friendFromContext.id);
+            } catch (error) {
+                console.error("Delete friend error:", error);
+                toast.error("Failed to delete friend record");
+                return;
+            }
+        }
+
+        // 4. Log and Redirect
+        if (auth.currentUser?.uid) {
+            await logActivity({
+                type: "delete_group", // generic delete type
+                description: `Deleted friend: ${displayName}`,
+                details: {
+                    groupName: "Friends",
+                    deletedAt: new Date()
+                },
+                createdBy: userName,
+                userId: auth.currentUser.uid,
+                visibleToUserEmails: [auth.currentUser.email!]
+            });
+        }
+
+        toast.success("Friend deleted successfully");
+        navigate("/");
+    };
+
     return (
         <div className="flex-1 flex flex-col p-4 md:p-8 w-full overflow-y-auto custom-scrollbar">
             <div className="px-2 py-6 border-b border-gray-100 w-full mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 group/header cursor-default">
@@ -77,7 +161,7 @@ export function FriendView({ friendName, userName }: FriendViewProps) {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-[180px] bg-white border-gray-100 shadow-xl rounded-xl p-2">
                             <DropdownMenuItem
-                                onClick={() => toast.info("Delete Friend logic coming soon!")}
+                                onClick={handleDeleteFriend}
                                 className="gap-2 text-red-500 focus:text-red-500 cursor-pointer font-bold uppercase text-xs tracking-widest py-3 hover:bg-red-50 rounded-lg"
                             >
                                 <Trash2 className="w-4 h-4" /> Delete Friend
@@ -85,7 +169,7 @@ export function FriendView({ friendName, userName }: FriendViewProps) {
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    <AddExpenseModal userName={userName}>
+                    <AddExpenseModal userName={userName} defaultParticipants={[displayName]} hideManualParticipantEntry={true}>
                         <Button className="bg-[#ff6d2f] hover:bg-[#ff8552] text-white font-black uppercase italic px-6 md:px-8 h-12 md:h-14 rounded-2xl shadow-[0_4px_0_#9c3d14] md:shadow-[0_8px_0_#9c3d14] active:shadow-none active:translate-y-[4px] md:active:translate-y-[8px] transition-all border border-white/10 flex items-center gap-2 md:gap-4 text-sm md:text-lg w-full md:w-auto">
                             <Plus className="w-4 h-4 md:w-5 md:h-5" />
                             Add expense
@@ -180,9 +264,9 @@ export function FriendView({ friendName, userName }: FriendViewProps) {
                                 <div className="flex items-center gap-6">
                                     <div className="flex flex-col items-end">
                                         <span className={item.paidBy === "you" || item.paidBy === userName || item.paidBy === "You" ? "text-[#32dd9e]" : "text-gray-400"}>
-                                            {item.paidBy === "you" || item.paidBy === userName || item.paidBy === "You" ? "you lent" : "you borrowed"}
+                                            {item.paidBy === "you" || item.paidBy === userName || item.paidBy === "You" ? "you paid" : "your share"}
                                         </span>
-                                        <span className={`text-xl font-black tracking-tighter flex items-center gap-0.5 ${item.paidBy === "you" || item.paidBy === userName || item.paidBy === "You" ? "text-[#32dd9e]" : "text-red-400"
+                                        <span className={`text-xl font-black tracking-tighter flex items-center gap-0.5 ${item.paidBy === "you" || item.paidBy === userName || item.paidBy === "You" ? "text-[#32dd9e]" : "text-gray-900"
                                             }`}>
                                             <CurrencyRupeeIcon size={16} />
                                             {(() => {
@@ -194,7 +278,7 @@ export function FriendView({ friendName, userName }: FriendViewProps) {
 
                                                 if (item.splitMethod === "equally") {
                                                     const isTargetInvolved = targetNames.some(t => participants.includes(t.toLowerCase()));
-                                                    if (isTargetInvolved) {
+                                                    if (isTargetInvolved && item.participants.length > 0) {
                                                         share = item.amount / item.participants.length;
                                                     }
                                                 } else if (item.splitMethod === "exact") {

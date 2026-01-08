@@ -91,7 +91,9 @@ export function ExpenseDetailsDialog({
                                     // Calculate share logic
                                     let share = 0;
                                     if (expense.splitMethod === "equally") {
-                                        share = expense.amount / expense.participants.length;
+                                        if (expense.participants.length > 0) {
+                                            share = expense.amount / expense.participants.length;
+                                        }
                                     } else if (expense.splitDetails && expense.splitDetails[person]) {
                                         const val = Number(expense.splitDetails[person]);
                                         if (expense.splitMethod === "percentage") {

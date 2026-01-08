@@ -1,5 +1,6 @@
+import { useState } from "react"
 import { NavLink } from "react-router-dom"
-import { Plus, ArrowUpRight } from "lucide-react"
+import { Plus, ArrowUpRight, ChevronDown, ChevronUp } from "lucide-react"
 import {
     Sidebar,
     SidebarContent,
@@ -18,6 +19,7 @@ import CurrencyRupeeIcon from "@/components/ui/icons/currency-rupee-icon"
 import { cn } from "@/lib/utils"
 import { auth } from "@/lib/firebase"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import CanvasCursor from "@/components/ui/CanvasCursor"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
     forceExpanded?: boolean
@@ -27,6 +29,10 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
     const { getFriendBalance, expenses, groups, friends } = useExpenses()
     const { open } = useSidebar()
     const isCollapsed = forceExpanded ? false : !open
+    const [showAllGroups, setShowAllGroups] = useState(false)
+    const [showAllFriends, setShowAllFriends] = useState(false)
+
+    const userName = auth.currentUser?.displayName || "User"
 
     // Deduplicate friends by name (case-insensitive)
     const friendsFromContext = friends.map(f => ({
@@ -50,7 +56,13 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
 
     const seenNames = new Set<string>()
     const allFriends = [...friendsFromContext, ...customFriends].filter(friend => {
-        const lowerName = friend.title.toLowerCase()
+        const lowerName = friend.title.toLowerCase().trim()
+        const lowerUserName = userName.toLowerCase().trim()
+        const userFirstName = lowerUserName.split(' ')[0]
+
+        // Filter out current user and "You"
+        if (lowerName === "you" || lowerName === lowerUserName || lowerName === userFirstName) return false
+
         if (seenNames.has(lowerName)) {
             return false
         }
@@ -70,12 +82,15 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
         return daysDiff <= 7
     }).length
 
-    const userName = auth.currentUser?.displayName || "User"
-
     return (
-        <Sidebar collapsible={forceExpanded ? "none" : "icon"} {...props} className="relative bg-white border-r border-gray-100">
+        <Sidebar
+            id="sidebar-container"
+            collapsible={forceExpanded ? "none" : "icon"}
+            {...props}
+            className="relative bg-white border-r border-gray-100"
+        >
+            <CanvasCursor containerId="sidebar-container" />
             <div className="h-full flex flex-col p-6 group-data-[collapsible=icon]:p-2">
-                {/* Featured Action Card */}
                 {!isCollapsed ? (
                     <AddExpenseModal userName={userName}>
                         <button className="w-full mb-8 group">
@@ -116,7 +131,7 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
                     </div>
                 )}
 
-                <SidebarContent className="flex-1 bg-transparent space-y-1">
+                <SidebarContent className="flex-1 bg-transparent space-y-1 custom-scrollbar">
                     {/* Main Navigation - Minimal Style */}
                     <SidebarGroup>
                         <SidebarGroupContent>
@@ -194,30 +209,50 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
                         )}
                         <SidebarMenu className="space-y-0.5">
                             {sidebarGroups.length > 0 ? (
-                                sidebarGroups.map((group) => (
-                                    <SidebarMenuItem key={group.url}>
-                                        <SidebarMenuButton asChild className="hover:bg-gray-50 transition-colors px-1">
-                                            <NavLink to={group.url}>
-                                                {({ isActive }) => (
-                                                    <>
-                                                        <span className="text-sm text-gray-400">/</span>
-                                                        {!isCollapsed && (
-                                                            <span className={cn(
-                                                                "text-base transition-colors relative",
-                                                                isActive ? "font-bold text-red-500" : "font-medium text-gray-900"
-                                                            )}>
-                                                                {group.title}
-                                                                {isActive && (
-                                                                    <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-red-500 animate-in slide-in-from-left duration-300" />
-                                                                )}
-                                                            </span>
-                                                        )}
-                                                    </>
-                                                )}
-                                            </NavLink>
-                                        </SidebarMenuButton>
-                                    </SidebarMenuItem>
-                                ))
+                                <>
+                                    {(showAllGroups ? sidebarGroups : sidebarGroups.slice(0, 3)).map((group) => (
+                                        <SidebarMenuItem key={group.url}>
+                                            <SidebarMenuButton asChild className="hover:bg-gray-50 transition-colors px-1">
+                                                <NavLink to={group.url}>
+                                                    {({ isActive }) => (
+                                                        <>
+                                                            <span className="text-sm text-gray-400">/</span>
+                                                            {!isCollapsed && (
+                                                                <span className={cn(
+                                                                    "text-base transition-colors relative",
+                                                                    isActive ? "font-bold text-red-500" : "font-medium text-gray-900"
+                                                                )}>
+                                                                    {group.title}
+                                                                    {isActive && (
+                                                                        <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-red-500 animate-in slide-in-from-left duration-300" />
+                                                                    )}
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </NavLink>
+                                            </SidebarMenuButton>
+                                        </SidebarMenuItem>
+                                    ))}
+                                    {!isCollapsed && sidebarGroups.length > 3 && (
+                                        <button
+                                            onClick={() => setShowAllGroups(!showAllGroups)}
+                                            className="w-full flex items-center gap-2 px-2 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:text-gray-900 transition-colors"
+                                        >
+                                            {showAllGroups ? (
+                                                <>
+                                                    <ChevronUp className="w-3 h-3" />
+                                                    Show Less
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <ChevronDown className="w-3 h-3" />
+                                                    Show {sidebarGroups.length - 3} More
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
+                                </>
                             ) : !isCollapsed ? (
                                 <p className="text-xs text-gray-400 px-1 py-2">No groups yet</p>
                             ) : null}
@@ -233,7 +268,7 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
                             </div>
                         )}
                         <SidebarMenu className="space-y-0.5">
-                            {allFriends.slice(0, 6).map((friend) => {
+                            {(showAllFriends ? allFriends : allFriends.slice(0, 4)).map((friend) => {
                                 const balance = getFriendBalance(friend.title)
                                 return (
                                     <SidebarMenuItem key={friend.url}>
@@ -271,6 +306,24 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
                                     </SidebarMenuItem>
                                 )
                             })}
+                            {!isCollapsed && allFriends.length > 4 && (
+                                <button
+                                    onClick={() => setShowAllFriends(!showAllFriends)}
+                                    className="w-full flex items-center gap-2 px-2 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:text-gray-900 transition-colors"
+                                >
+                                    {showAllFriends ? (
+                                        <>
+                                            <ChevronUp className="w-3 h-3" />
+                                            Show Less
+                                        </>
+                                    ) : (
+                                        <>
+                                            <ChevronDown className="w-3 h-3" />
+                                            Show {allFriends.length - 4} More
+                                        </>
+                                    )}
+                                </button>
+                            )}
                             {allFriends.length === 0 && !isCollapsed && (
                                 <p className="text-xs text-gray-400 px-1 py-2">No friends yet</p>
                             )}

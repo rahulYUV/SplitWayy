@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import homeImg from "@/assets/images/Home.png";
 import flightImg from "@/assets/images/Flight.png";
 import lvImg from "@/assets/images/lv.png";
 import ridesImg from "@/assets/images/rides.png";
-import currencyImg from "@/assets/images/currency.png";
 import { Plane, Home, Heart, Asterisk, Car } from 'lucide-react';
+import { FastSplitLiquidButton } from "@/components/ui/GithubLiquidButton";
 
 const HERO_ITEMS = [
     {
@@ -79,10 +78,13 @@ export function Hero() {
     const currentItem = HERO_ITEMS[index];
 
     return (
-        <div className="flex flex-col md:flex-row items-center justify-between max-w-6xl mx-auto px-6 py-8 mt-32 md:mt-24 w-full z-10 relative">
-            <div className="flex-1 space-y-6 text-left max-w-xl">
-                <h1 className="text-3xl md:text-5xl font-black text-black leading-tight tracking-tight">
-                    Less stress when sharing expenses <br />
+        <div className="flex flex-col-reverse md:flex-row items-center justify-between max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 mt-16 sm:mt-20 md:mt-32 lg:mt-24 w-full z-10 relative gap-6 sm:gap-8 md:gap-12">
+
+            {/* Left Column: Content (Shows second on mobile, first on desktop) */}
+            <div className="flex-1 space-y-4 sm:space-y-6 text-center md:text-left max-w-xl w-full">
+                {/* Heading */}
+                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-black leading-tight tracking-tight">
+                    Less stress when sharing expenses <br className="hidden sm:block" />
                     <span
                         className={cn(
                             "inline-block transition-all duration-700 font-black ease-in-out transform",
@@ -94,58 +96,41 @@ export function Hero() {
                     </span>
                 </h1>
 
-                {/* Icons Row: Home -> Heart (LV) -> Car -> Plane (Flight) -> Asterisk (Star) */}
-                <div className="flex gap-6 text-2xl text-gray-400 pt-2 items-center">
+                {/* Icons Row */}
+                <div className="flex gap-4 sm:gap-6 text-2xl text-gray-400 pt-2 items-center justify-center md:justify-start">
                     {HERO_ITEMS.map((item, i) => (
                         <item.Icon
                             key={i}
                             onClick={() => setIndex(i)}
                             className={cn(
-                                "w-6 h-6 md:w-8 md:h-8 cursor-pointer transition-all duration-300",
+                                "w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 cursor-pointer transition-all duration-300",
                                 index === i ? `${item.activeColor} scale-110` : item.hoverColor
                             )}
                         />
                     ))}
                 </div>
 
-                <p className="text-base md:text-lg text-gray-400 leading-relaxed max-w-lg">
+                {/* Description */}
+                <p className="text-sm sm:text-base md:text-lg text-gray-400 leading-relaxed max-w-lg mx-auto md:mx-0">
                     Keep track of your shared expenses and balances with housemates, trips, groups, friends, and family.
                 </p>
 
-                <button className={cn(
-                    "px-8 py-4 text-base md:text-lg font-bold text-white rounded-xl shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95",
-                    currentItem.bgColor
-                )}>
-                    Split the <span className="lowercase">{currentItem.buttonText}</span>
-                </button>
+                {/* Buttons */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center md:justify-start gap-3 sm:gap-4 w-full">
+                    <button className={cn(
+                        "w-full sm:w-auto sm:flex-1 px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base md:text-lg font-bold text-white rounded-xl shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95",
+                        currentItem.bgColor
+                    )}>
+                        Split the <span className="lowercase">{currentItem.buttonText}</span>
+                    </button>
 
-                <div className="flex items-center gap-6 mt-32 transition-opacity duration-500">
-                    {[homeImg, flightImg, ridesImg, lvImg, currencyImg].map((img, i) => (
-                        <motion.img
-                            key={i}
-                            src={img}
-                            alt="icon"
-                            animate={{
-                                scale: [1, 1.2, 1],
-                                opacity: [0.7, 1, 0.7],
-                            }}
-                            transition={{
-                                duration: 2,
-                                repeat: Infinity,
-                                delay: i * 0.4, // Staggered delay for "one by one" effect
-                                ease: "easeInOut"
-                            }}
-                            className="w-20 h-20 md:w-24 md:h-24 object-contain drop-shadow-sm"
-                        />
-                    ))}
+                    <FastSplitLiquidButton className="h-[52px] sm:h-[60px] w-full sm:w-auto sm:flex-1 px-6 sm:px-8" />
                 </div>
-
-
             </div>
 
-            {/* Right Column: Dynamic Image */}
-            <div className="flex-1 flex justify-center items-center mt-12 md:mt-0 relative">
-                <div className="relative w-full max-w-lg h-[300px] md:h-[400px] flex items-center justify-center overflow-hidden">
+            {/* Right Column: Dynamic Image (Shows first on mobile, second on desktop) */}
+            <div className="flex-1 flex justify-center items-center relative w-full max-w-sm sm:max-w-md md:max-w-lg">
+                <div className="relative w-full h-[240px] sm:h-[320px] md:h-[380px] lg:h-[450px] flex items-center justify-center overflow-hidden">
                     {HERO_ITEMS.map((item, i) => (
                         <img
                             key={i}

@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CalendarIcon, Camera, CreditCard, Banknote, ArrowRight } from "lucide-react";
+import { CalendarIcon, CreditCard, Banknote, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useExpenses } from "@/context/ExpenseContext";
@@ -26,24 +26,20 @@ declare global {
 }
 
 export function SettleUpModal({ isOpen, onClose, friendName, balance, userName, groupId }: SettleUpModalProps) {
-    // Determine default mode based on balance
-    // If balance > 0 (They owe me), default to 'take' (receiving money)
-    // If balance < 0 (I owe them), default to 'give' (paying money)
-    const initialMode = balance >= 0 ? "take" : "give";
-    const [mode, setMode] = useState<"give" | "take">(initialMode);
+    // Determine mode based on balance
+    // If balance > 0 (They owe me), mode is 'take' (receiving money)
+    // If balance < 0 (I owe them), mode is 'give' (paying money)
+    const mode = balance >= 0 ? "take" : "give";
 
-    // Amount is always positive absolute value
-    const [amount, setAmount] = useState(Math.abs(balance).toString());
+    // Amount is always positive absolute value, not editable
+    const amount = Math.abs(balance).toFixed(3);
+
+    // Notes state
     const [date, setDate] = useState(new Date());
     const [notes, setNotes] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
     const { addExpense } = useExpenses();
-
-    useEffect(() => {
-        setAmount(Math.abs(balance).toString());
-        setMode(balance >= 0 ? "take" : "give");
-    }, [balance, isOpen]);
 
     const handleSettle = async (method: "cash" | "online") => {
         const numAmount = parseFloat(amount);
@@ -150,7 +146,7 @@ export function SettleUpModal({ isOpen, onClose, friendName, balance, userName, 
                 splitMethod: "percentage",
                 splitDetails: splitDetails,
                 category: "Payment",
-                // notes not supported by interface
+                notes: notes,
             });
 
             toast.success(`Settled ₹${val} with ${friendName}`);
@@ -194,26 +190,15 @@ export function SettleUpModal({ isOpen, onClose, friendName, balance, userName, 
                         </div>
                     </div>
 
-                    {/* Mode Toggle as Tabs */}
+                    {/* Single Mode Display */}
                     <div className="absolute bottom-0 left-0 w-full flex">
-                        <button
-                            onClick={() => setMode("give")}
+                        <div
                             className={cn(
-                                "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors",
-                                mode === "give" ? "bg-white text-[#32dd9e]" : "bg-[#2bc48a] text-white/60 hover:bg-[#2ebf88]"
+                                "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors bg-white text-[#32dd9e]"
                             )}
                         >
-                            Pay {friendName}
-                        </button>
-                        <button
-                            onClick={() => setMode("take")}
-                            className={cn(
-                                "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors",
-                                mode === "take" ? "bg-white text-[#32dd9e]" : "bg-[#2bc48a] text-white/60 hover:bg-[#2ebf88]"
-                            )}
-                        >
-                            Receive from {friendName}
-                        </button>
+                            {mode === "give" ? `Pay ${friendName}` : `Receive from ${friendName}`}
+                        </div>
                     </div>
                 </DialogHeader>
 
@@ -225,11 +210,10 @@ export function SettleUpModal({ isOpen, onClose, friendName, balance, userName, 
                         <div className="flex items-center justify-center">
                             <CurrencyRupeeIcon className="text-gray-900 w-8 h-8" />
                             <Input
-                                type="number"
+                                type="text"
+                                readOnly
                                 value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
-                                className="text-5xl font-black text-center border-none shadow-none focus-visible:ring-0 p-0 h-auto w-40 placeholder:text-gray-200"
-                                placeholder="0"
+                                className="text-5xl font-black text-center border-none shadow-none focus-visible:ring-0 p-0 h-auto w-40 placeholder:text-gray-200 cursor-default bg-transparent"
                             />
                         </div>
                     </div>
@@ -247,26 +231,21 @@ export function SettleUpModal({ isOpen, onClose, friendName, balance, userName, 
                     )}
 
                     <div className="flex flex-col gap-3">
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2">
                             <Button
                                 variant="outline"
-                                className="flex-1 h-12 rounded-xl border-gray-100 text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                                className="flex-1 h-12 rounded-xl border-gray-100 text-gray-500 hover:text-gray-900 hover:bg-gray-50 w-full"
                                 onClick={() => setDate(new Date())}
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
                                 {format(date, "MMM dd, yyyy")}
                             </Button>
-                            <Button
-                                variant="outline"
-                                className="flex-1 h-12 rounded-xl border-gray-100 text-gray-500 hover:text-gray-900 hover:bg-gray-50 bg-transparent"
-                                onClick={() => {
-                                    const note = prompt("Enter notes:");
-                                    if (note) setNotes(note);
-                                }}
-                            >
-                                <Camera className="mr-2 h-4 w-4" />
-                                {notes ? "Edit Notes" : "Add Notes"}
-                            </Button>
+                            <Input
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                placeholder="Add notes (optional)..."
+                                className="h-12 rounded-xl border-gray-100 bg-gray-50/50"
+                            />
                         </div>
                     </div>
 

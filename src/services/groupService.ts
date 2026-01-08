@@ -5,14 +5,13 @@ import {
     getDoc,
     getDocs,
     updateDoc,
-    deleteDoc,
     query,
     where,
-    or,
     serverTimestamp,
     arrayUnion,
     arrayRemove,
-    onSnapshot
+    onSnapshot,
+    writeBatch
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -41,13 +40,37 @@ const COLLECTION_NAME = "groups";
 export const createGroup = async (groupData: Omit<Group, "id" | "createdAt" | "updatedAt">, userId?: string) => {
     const groupRef = doc(collection(db, COLLECTION_NAME));
 
+    // Deduplicate members by email (primary) and name (secondary)
+    const uniqueMembers: GroupMember[] = [];
+    const seenEmails = new Set<string>();
+    const seenNames = new Set<string>();
+
+    groupData.members.forEach(member => {
+        const normalizedName = member.name.toLowerCase().trim();
+        const normalizedEmail = member.email?.toLowerCase().trim();
+
+        // Check if already added by email or name
+        if (normalizedEmail) {
+            if (!seenEmails.has(normalizedEmail)) {
+                seenEmails.add(normalizedEmail);
+                uniqueMembers.push(member);
+            }
+        } else {
+            if (!seenNames.has(normalizedName)) {
+                seenNames.add(normalizedName);
+                uniqueMembers.push(member);
+            }
+        }
+    });
+
     // Ensure memberEmails is populated for searching
-    const memberEmails = groupData.members
+    const memberEmails = uniqueMembers
         .map(m => m.email)
         .filter((email): email is string => !!email);
 
     const newGroup: any = {
         ...groupData,
+        members: uniqueMembers,
         id: groupRef.id,
         memberEmails,
         createdBy: userId || groupData.createdBy, // Ensure createdBy is set
@@ -71,10 +94,7 @@ export const getGroups = async (userId: string, userEmail?: string | null) => {
     if (userEmail) {
         q = query(
             collection(db, COLLECTION_NAME),
-            or(
-                where("createdBy", "==", userId),
-                where("memberEmails", "array-contains", userEmail)
-            )
+            where("memberEmails", "array-contains", userEmail)
         );
     } else {
         q = query(collection(db, COLLECTION_NAME), where("createdBy", "==", userId));
@@ -108,8 +128,21 @@ export const updateGroup = async (groupId: string, data: Partial<Group>) => {
 };
 
 export const deleteGroup = async (groupId: string) => {
+    // 1. Delete the group document
     const groupRef = doc(db, COLLECTION_NAME, groupId);
-    await deleteDoc(groupRef);
+
+    // 2. Cascade delete expenses linked to this group
+    const expensesQ = query(collection(db, "expenses"), where("groupId", "==", groupId));
+    const expenseSnap = await getDocs(expensesQ);
+
+    const batch = writeBatch(db);
+    batch.delete(groupRef);
+
+    expenseSnap.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+    });
+
+    await batch.commit();
 };
 
 export const addUserToGroup = async (groupId: string, member: GroupMember) => {
@@ -141,10 +174,7 @@ export const subscribeToUserGroups = (userId: string, userEmail: string | null |
     if (userEmail) {
         q = query(
             collection(db, COLLECTION_NAME),
-            or(
-                where("createdBy", "==", userId),
-                where("memberEmails", "array-contains", userEmail)
-            )
+            where("memberEmails", "array-contains", userEmail)
         );
     } else {
         q = query(collection(db, COLLECTION_NAME), where("createdBy", "==", userId));

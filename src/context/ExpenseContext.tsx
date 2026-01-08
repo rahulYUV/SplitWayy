@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Expense, subscribeToUserExpenses, createExpense, updateExpense, deleteExpense } from "@/services/expenseService";
+import { subscribeToUserFriends, Friend } from "@/services/friendService";
 export type { Expense };
 import { toast } from "sonner";
 import { Group, subscribeToUserGroups, createGroup } from "@/services/groupService";
@@ -9,7 +10,7 @@ import { User } from "firebase/auth";
 interface ExpenseContextType {
     expenses: Expense[];
     groups: Group[];
-    friends: { name: string; email?: string; avatar?: string; displayName?: string }[];
+    friends: { id?: string; name: string; email?: string; avatar?: string; displayName?: string }[];
     loading: boolean;
     addExpense: (expense: Omit<Expense, "id" | "createdBy">) => Promise<void>;
     editExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
@@ -24,6 +25,7 @@ const ExpenseContext = createContext<ExpenseContextType | undefined>(undefined);
 export function ExpenseProvider({ children, user }: { children: React.ReactNode; user?: User | null }) {
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [groups, setGroups] = useState<Group[]>([]);
+    const [userFriends, setUserFriends] = useState<Friend[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -49,24 +51,34 @@ export function ExpenseProvider({ children, user }: { children: React.ReactNode;
             setGroups(data);
         });
 
+        const unsubFriends = subscribeToUserFriends(user.uid, (data) => {
+            setUserFriends(data);
+        });
+
         return () => {
             unsubExpenses();
             unsubGroups();
+            unsubFriends();
         };
     }, [user]);
 
     const addExpense = async (expenseData: Omit<Expense, "id" | "createdBy">) => {
         try {
-            // Use current user's name or "You" if name unavailable? 
-            // Better to use "You" for consistency with existing UI logic if explicit name is not passed.
-            // But ExpenseService doesn't set paidBy.
-
             // Ensure creator's email is in participantEmails so they can see the expense
             const pEmails = new Set(expenseData.participantEmails || []);
-            if (user?.email) pEmails.add(user.email);
+            if (user?.email) {
+                pEmails.add(user.email);
+            }
+
+            // Ensure creator is in participants list (as "You" or their name)
+            const participants = new Set(expenseData.participants || []);
+            if (!participants.size) {
+                participants.add("You");
+            }
 
             const newExpense = {
                 ...expenseData,
+                participants: Array.from(participants),
                 participantEmails: Array.from(pEmails),
                 createdBy: user?.uid || "unknown"
             };
@@ -105,7 +117,9 @@ export function ExpenseProvider({ children, user }: { children: React.ReactNode;
                     participants: members.map(m => m.name),
                     createdAt: new Date()
                 },
-                createdBy: user.displayName || user.email || "You"
+                createdBy: user.displayName || user.email || "You",
+                userId: user.uid,
+                visibleToUserEmails: members.map(m => m.email).filter((e): e is string => !!e)
             });
 
             // toast success handled in component or here? Component handles it.
@@ -145,6 +159,11 @@ export function ExpenseProvider({ children, user }: { children: React.ReactNode;
                         groupName: groups.find(g => g.id === expenseToDelete.groupId)?.name
                     },
                     createdBy: user?.displayName || user?.email || "You",
+                    userId: user?.uid,
+                    visibleToUserEmails: [
+                        ...(expenseToDelete.participantEmails || []),
+                        user?.email
+                    ].filter((e): e is string => !!e),
                     relatedGroupId: expenseToDelete.groupId || undefined
                 });
             }
@@ -162,24 +181,24 @@ export function ExpenseProvider({ children, user }: { children: React.ReactNode;
 
     const getFriendBalance = (friendName: string) => {
         let netBalance = 0;
+        const lowerFriendName = friendName.toLowerCase().trim();
 
         // Determine "My Name" used in expenses
-        // If legacy expenses use "You", we check "You".
-        // If new expenses use "Joe Root", we check that.
-        // We accumulate both.
-
         const myNames = ["You"];
         if (user?.displayName) myNames.push(user.displayName);
-        if (user?.displayName?.split(' ')[0]) myNames.push(user.displayName.split(' ')[0]); // First name
+        if (user?.displayName?.split(' ')[0]) myNames.push(user.displayName.split(' ')[0]);
+        // Normalize my names
+        const lowerMyNames = myNames.map(n => n.toLowerCase().trim());
 
         expenses.forEach(expense => {
-
-            const isPayerMe = myNames.includes(expense.paidBy);
-            const isPayerFriend = expense.paidBy === friendName;
+            const payerLower = expense.paidBy.toLowerCase().trim();
+            const isPayerMe = lowerMyNames.includes(payerLower);
+            const isPayerFriend = payerLower === lowerFriendName;
 
             // Participation Check
-            const isFriendInvolved = expense.participants.includes(friendName);
-            const amIInvolved = expense.participants.some(p => myNames.includes(p));
+            const participantsLower = expense.participants.map(p => p.toLowerCase().trim());
+            const isFriendInvolved = participantsLower.includes(lowerFriendName);
+            const amIInvolved = participantsLower.some(p => lowerMyNames.includes(p));
 
             if (!isFriendInvolved && !amIInvolved) return;
 
@@ -187,33 +206,46 @@ export function ExpenseProvider({ children, user }: { children: React.ReactNode;
 
             let amount = 0;
             if (expense.splitMethod === "equally") {
-                amount = expense.amount / count;
+                if (count > 0) {
+                    amount = expense.amount / count;
+                }
             } else if (expense.splitMethod === "exact") {
                 if (isPayerMe) {
-                    amount = Number(expense.splitDetails?.[friendName] || 0);
+                    // Find friend key
+                    const key = Object.keys(expense.splitDetails || {}).find(k => k.toLowerCase().trim() === lowerFriendName);
+                    if (key) amount = Number(expense.splitDetails?.[key] || 0);
                 } else if (isPayerFriend) {
-                    // Check if I am involved and how much
-                    // splitDetails key might be "You" or "Joe".
-                    // We check all myNames
-                    for (const name of myNames) {
-                        const val = Number(expense.splitDetails?.[name] || 0);
-                        if (val > 0) {
-                            amount = val;
-                            break;
+                    // Find me key
+                    const keys = Object.keys(expense.splitDetails || {});
+                    for (const myName of lowerMyNames) {
+                        const key = keys.find(k => k.toLowerCase().trim() === myName);
+                        if (key) {
+                            const val = Number(expense.splitDetails?.[key] || 0);
+                            if (val > 0) {
+                                amount = val;
+                                break;
+                            }
                         }
                     }
                 }
             } else if (expense.splitMethod === "percentage") {
                 if (isPayerMe) {
-                    const p = Number(expense.splitDetails?.[friendName] || 0);
-                    amount = (expense.amount * p) / 100;
+                    const key = Object.keys(expense.splitDetails || {}).find(k => k.toLowerCase().trim() === lowerFriendName);
+                    if (key) {
+                        const p = Number(expense.splitDetails?.[key] || 0);
+                        amount = (expense.amount * p) / 100;
+                    }
                 } else if (isPayerFriend) {
                     let p = 0;
-                    for (const name of myNames) {
-                        const val = Number(expense.splitDetails?.[name] || 0);
-                        if (val > 0) {
-                            p = val;
-                            break;
+                    const keys = Object.keys(expense.splitDetails || {});
+                    for (const myName of lowerMyNames) {
+                        const key = keys.find(k => k.toLowerCase().trim() === myName);
+                        if (key) {
+                            const val = Number(expense.splitDetails?.[key] || 0);
+                            if (val > 0) {
+                                p = val;
+                                break;
+                            }
                         }
                     }
                     amount = (expense.amount * p) / 100;
@@ -230,12 +262,22 @@ export function ExpenseProvider({ children, user }: { children: React.ReactNode;
         return netBalance;
     };
 
-    // Derive friends list from groups
+    // Derive friends list from groups AND explicit friends
     const friends = React.useMemo(() => {
-        const unique = new Map();
+        const unique = new Map<string, { id?: string; name: string; email?: string; avatar?: string; displayName?: string }>();
 
-        // Add "You" to logic? No, friends list excludes "You".
+        // 1. Add explicit friends first (they have IDs)
+        userFriends.forEach(f => {
+            // Normalized key
+            unique.set(f.displayName.toLowerCase().trim(), {
+                id: f.id,
+                name: f.displayName,
+                email: f.email,
+                displayName: f.displayName
+            });
+        });
 
+        // 2. Add Group Members if not already present
         groups.forEach(g => {
             g.members.forEach(m => {
                 const isMe =
@@ -243,13 +285,13 @@ export function ExpenseProvider({ children, user }: { children: React.ReactNode;
                     (user?.email && m.email === user.email) ||
                     (user?.displayName && m.name.toLowerCase().trim() === user.displayName.toLowerCase().trim());
 
-                if (!isMe && !unique.has(m.name)) {
-                    unique.set(m.name, { ...m, displayName: m.name });
+                if (!isMe && !unique.has(m.name.toLowerCase().trim())) {
+                    unique.set(m.name.toLowerCase().trim(), { ...m, displayName: m.name });
                 }
             });
         });
-        return Array.from(unique.values()) as { name: string; email?: string; avatar?: string; displayName?: string }[];
-    }, [groups, user]);
+        return Array.from(unique.values());
+    }, [groups, userFriends, user]);
 
     return (
         <ExpenseContext.Provider value={{

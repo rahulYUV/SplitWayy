@@ -4,9 +4,9 @@ import { TextClipPathReveal } from "./ui/TextClipPathReveal";
 
 export function FooterSection() {
     return (
-        <section className="relative w-full py-12 overflow-hidden bg-background">
-            <div className="container mx-auto px-4 max-w-7xl">
-                <div className="relative w-full py-24 overflow-hidden rounded-[3.5rem] bg-[#0d9488] shadow-[0_40px_100px_-30px_rgba(13,148,136,0.3)]">
+        <section className="relative w-full py-8 sm:py-12 overflow-hidden bg-background">
+            <div className="container mx-auto px-3 sm:px-4 max-w-7xl">
+                <div className="relative w-full py-12 sm:py-16 md:py-20 lg:py-24 overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] md:rounded-[3rem] lg:rounded-[3.5rem] bg-[#0d9488] shadow-[0_20px_60px_-15px_rgba(13,148,136,0.3)] sm:shadow-[0_40px_100px_-30px_rgba(13,148,136,0.3)]">
                     {/* Geometric Teal Background Pattern */}
                     <div className="absolute inset-0 z-0">
                         <div className="absolute inset-0 bg-gradient-to-tr from-[#064e3b] via-[#0d9488] to-[#2dd4bf] opacity-90" />
@@ -57,11 +57,12 @@ export function FooterSection() {
                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.3)_100%)] pointer-events-none" />
                     </div>
 
-                    <div className="relative z-10 w-full px-8 md:px-12 lg:px-16">
-                        <div className="text-center mb-16">
+                    <div className="relative z-10 w-full px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16">
+                        {/* Title Section */}
+                        <div className="text-center mb-8 sm:mb-12 md:mb-16">
                             <TextClipPathReveal
                                 text="Your financial world, visualized."
-                                className="text-5xl font-black text-white lg:text-7xl tracking-[-0.05em] leading-[1.2] mb-4"
+                                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black text-white tracking-[-0.05em] leading-[1.2] mb-3 sm:mb-4 px-2"
                                 direction="bottom"
                                 duration={1.2}
                             />
@@ -70,13 +71,14 @@ export function FooterSection() {
                                 whileInView={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.5, duration: 0.8 }}
                                 viewport={{ once: true }}
-                                className="text-xl text-white/60 font-medium max-w-2xl mx-auto"
+                                className="text-sm sm:text-base md:text-lg lg:text-xl text-white/60 font-medium max-w-2xl mx-auto px-4"
                             >
                                 Get clear insights into who paid for what and how your balances are trending over time.
                             </motion.p>
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
+                        {/* Charts Grid */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8 max-w-6xl mx-auto">
                             {/* Full Width Area Chart with History */}
                             <motion.div
                                 className="lg:col-span-2"

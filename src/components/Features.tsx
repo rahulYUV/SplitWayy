@@ -100,9 +100,9 @@ const rightItems = [
 
 export function Features() {
     return (
-        <section className="relative w-full py-12 overflow-hidden bg-background">
-            <div className="container mx-auto px-4 max-w-7xl">
-                <div className="relative w-full py-24 overflow-hidden rounded-[3.5rem] bg-[#7c3aed] shadow-[0_40px_100px_-30px_rgba(124,58,237,0.3)]">
+        <section className="relative w-full py-8 sm:py-12 overflow-hidden bg-background">
+            <div className="container mx-auto px-3 sm:px-4 max-w-7xl">
+                <div className="relative w-full py-12 sm:py-16 md:py-20 lg:py-24 overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] md:rounded-[3rem] lg:rounded-[3.5rem] bg-[#7c3aed] shadow-[0_20px_60px_-15px_rgba(124,58,237,0.3)] sm:shadow-[0_40px_100px_-30px_rgba(124,58,237,0.3)]">
                     {/* Direct Low-Poly Geometric Background Pattern */}
                     <div className="absolute inset-0 z-0">
                         <div className="absolute inset-0 bg-gradient-to-tr from-[#6d28d9] via-[#7c3aed] to-[#8b5cf6] opacity-90" />
@@ -152,11 +152,12 @@ export function Features() {
                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(0,0,0,0.2)_100%)] pointer-events-none" />
                     </div>
 
-                    <div className="relative z-10 mx-auto px-6">
-                        <div className="mx-auto mb-16 max-w-4xl text-center">
+                    <div className="relative z-10 mx-auto px-4 sm:px-6">
+                        {/* Title Section */}
+                        <div className="mx-auto mb-8 sm:mb-12 md:mb-16 max-w-4xl text-center">
                             <TextClipPathReveal
                                 text="Everything you need to manage expenses."
-                                className="text-5xl font-black text-white lg:text-7xl tracking-[-0.05em] leading-[1.2] mb-4"
+                                className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black text-white tracking-[-0.05em] leading-[1.2] mb-3 sm:mb-4 px-2"
                                 direction="bottom"
                                 duration={1.2}
                             />
@@ -165,13 +166,14 @@ export function Features() {
                                 whileInView={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.5, duration: 0.8 }}
                                 viewport={{ once: true }}
-                                className="text-xl text-white/60 font-medium max-w-2xl mx-auto"
+                                className="text-sm sm:text-base md:text-lg lg:text-xl text-white/60 font-medium max-w-2xl mx-auto px-4"
                             >
                                 SplitWayy makes it easy to keep track of shared bills and IOUs with anyone, anywhere.
                             </motion.p>
                         </div>
 
-                        <div className="hidden md:grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-8 items-start max-w-6xl mx-auto pb-8">
+                        {/* Feature Sliders - Now visible on mobile! */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-12 md:gap-16 lg:gap-8 items-start max-w-6xl mx-auto pb-4 sm:pb-6 md:pb-8">
                             <div className="flex flex-col items-center">
                                 <CapsuleSlider items={leftItems} />
                             </div>

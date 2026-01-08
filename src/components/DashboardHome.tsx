@@ -51,6 +51,13 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
         const allUniqueNames = Array.from(uniqueNamesMap.values());
 
         allUniqueNames.forEach((name) => {
+            // Filter out self (Full Name, First Name, or "You")
+            const lowerName = name.toLowerCase();
+            const lowerUserName = userName.toLowerCase();
+            const userFirstName = lowerUserName.split(' ')[0];
+
+            if (lowerName === "you" || lowerName === lowerUserName || lowerName === userFirstName) return;
+
             const balance = getFriendBalance(name);
             if (balance > 0.5) { // Ignore tiny amounts
                 owed.push({
@@ -75,7 +82,7 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
             totalOwed: totalOwedVal,
             totalOwe: totalOweVal
         };
-    }, [expenses, friends, getFriendBalance]);
+    }, [expenses, friends, getFriendBalance, userName]);
 
     const totalBalance = totalOwed - totalOwe;
 
@@ -140,7 +147,7 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
                 {/* Column Headers & Toggle */}
                 {/* Column Headers & Toggle */}
                 <div className="flex items-center justify-center md:justify-between px-4 md:px-12 pb-4 md:pb-8">
-                    <div className="hidden md:block font-black text-black/20 uppercase italic tracking-[0.3em] text-[10px]">YOU OWE</div>
+                    <div className="hidden md:block font-black text-white/50 uppercase italic tracking-[0.3em] text-[12px]">YOU OWE</div>
 
                     <div className="flex items-center bg-gray-100 rounded-xl p-1 border border-gray-200 shadow-inner">
                         <button
@@ -165,7 +172,7 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
                         </button>
                     </div>
 
-                    <div className="hidden md:block font-black text-black/20 uppercase italic tracking-[0.3em] text-[10px]">YOU ARE OWED</div>
+                    <div className="hidden md:block font-black text-white/50 uppercase italic tracking-[0.3em] text-[12px]">YOU ARE OWED</div>
                 </div>
 
                 <AnimatePresence mode="wait">
@@ -224,7 +231,7 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
                             animate={{ opacity: 1, scale: 1 }}
                             className="flex-1 flex flex-col items-center justify-center p-8 min-h-[400px] pb-20"
                         >
-                            <AnalyticsView expenses={expenses} />
+                            <AnalyticsView expenses={expenses} userName={userName} />
                         </motion.div>
                     )}
                 </AnimatePresence>

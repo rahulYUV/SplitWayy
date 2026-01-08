@@ -27,21 +27,27 @@ export function calculateDebts(expenses: Expense[]): Debt[] {
         }
 
         // 2. Calculate Borrower Debits (-)
+        const count = expense.participants.length;
+
+        // Skip if no participants to avoid division by zero
+        if (count === 0) {
+            console.warn(`Expense "${expense.description}" has no participants - skipping split calculation`);
+            return;
+        }
+
         if (expense.splitMethod === 'equally') {
             // Divide equally among participants
-            const count = expense.participants.length;
-            if (count > 0) {
-                const splitAmount = expense.amount / count;
-                expense.participants.forEach(p => {
-                    balances[p] = (balances[p] || 0) - splitAmount;
-                });
-            }
+            const splitAmount = expense.amount / count;
+            expense.participants.forEach(p => {
+                balances[p] = (balances[p] || 0) - splitAmount;
+            });
         } else if (expense.splitMethod === 'percentage') {
-            // Calculate based on percentage
+            // Calculate based on percentage with proper rounding
             if (expense.splitDetails) {
                 Object.entries(expense.splitDetails).forEach(([name, percentStr]) => {
                     const percent = Number(percentStr);
-                    const amountKey = (expense.amount * percent) / 100;
+                    // Round to 2 decimals to prevent floating point errors
+                    const amountKey = Math.round((expense.amount * percent)) / 100;
                     balances[name] = (balances[name] || 0) - amountKey;
                 });
             }

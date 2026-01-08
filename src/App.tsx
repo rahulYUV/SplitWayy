@@ -23,6 +23,7 @@ import { ContactUs } from "@/pages/ContactUs";
 import { ShippingPolicy } from "@/pages/ShippingPolicy";
 import { Toaster } from "@/components/ui/sonner";
 import { ExpenseProvider } from "@/context/ExpenseContext";
+import { QuickSplit } from "@/pages/QuickSplit";
 
 import { onSnapshot, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -104,6 +105,7 @@ function App() {
   };
 
   const firstName = profile?.displayName?.split(' ')[0] || user?.displayName?.split(' ')[0] || 'USER';
+  const fullName = profile?.displayName || user?.displayName || 'User';
 
   return (
     <BrowserRouter>
@@ -140,8 +142,8 @@ function App() {
               )
             }>
               {/* Sub-routes inside Dashboard Mat */}
-              <Route index element={<DashboardHome userName={firstName} />} />
-              <Route path="activity" element={<RecentActivity userName={firstName} />} />
+              <Route index element={<DashboardHome userName={fullName} />} />
+              <Route path="activity" element={<RecentActivity userName={firstName} user={user!} />} />
               <Route path="expenses" element={<AllExpenses userName={firstName} />} />
               <Route path="group/:id" element={<GroupView userName={user?.displayName || firstName} />} />
               <Route path="friend/:id" element={<FriendView userName={firstName} />} />
@@ -168,10 +170,15 @@ function App() {
             } />
 
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+
+            {/* ... inside function App ... */}
             <Route path="/terms" element={<TermsConditions />} />
             <Route path="/refund-policy" element={<RefundPolicy />} />
             <Route path="/contact" element={<ContactUs />} />
             <Route path="/shipping-policy" element={<ShippingPolicy />} />
+
+            {/* Guest Feature */}
+            <Route path="/quick-split" element={<QuickSplit />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

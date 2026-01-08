@@ -7,6 +7,7 @@ import {
     where,
     deleteDoc,
     serverTimestamp,
+    onSnapshot,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -39,7 +40,22 @@ export const addFriend = async (userId: string, friendData: Omit<Friend, "id" | 
 export const getFriends = async (userId: string) => {
     const q = query(collection(db, COLLECTION_NAME), where("addedBy", "==", userId));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => doc.data() as Friend);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Friend);
+};
+
+export const subscribeToUserFriends = (userId: string, callback: (friends: Friend[]) => void) => {
+    const q = query(
+        collection(db, COLLECTION_NAME),
+        where("addedBy", "==", userId)
+    );
+
+    return onSnapshot(q, (snapshot) => {
+        const friends = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as Friend));
+        callback(friends);
+    });
 };
 
 export const deleteFriend = async (friendId: string) => {

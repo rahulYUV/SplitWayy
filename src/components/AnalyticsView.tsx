@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 
 
 
-export function AnalyticsView({ expenses }: { expenses: any[] }) {
+export function AnalyticsView({ expenses, userName }: { expenses: any[], userName: string }) {
     // 1. Calculate Monthly Spending Trend (Last 6 Months)
     const trendData = useMemo(() => {
         const last6Months = Array.from({ length: 6 }, (_, i) => {
@@ -25,28 +25,27 @@ export function AnalyticsView({ expenses }: { expenses: any[] }) {
             if (e.category === 'Payment') return; // Exclude settlements
 
             // Spending Calculation:
-            // If splitMethod is 'equally', MyShare = Amount / Participants.length
-            // If 'percentage', MyShare = Amount * (Split['You']/100)
-            // If 'exact', MyShare = Split['You']
-
             const expenseDate = new Date(e.date);
             const monthData = last6Months.find(m => isSameMonth(m.date, expenseDate));
 
             if (monthData) {
                 let myShare = 0;
 
-                // Usually participants array excludes 'You' in my implementation, 
-                // so total people = participants.length + 1
-                const totalPeople = (e.participants?.length || 0) + 1;
+                // Identify if 'I' am in the valid participants list
+                // AddExpenseModal saves the actual userName in participants array.
+                // We also check for 'You' for backward compatibility.
+                const isParticipant = e.participants?.includes(userName) || e.participants?.includes('You');
+                const totalPeople = e.participants?.length || 0;
 
                 if (e.splitMethod === 'equally') {
-                    // Assuming I am always involved if I see it
-                    myShare = e.amount / totalPeople;
+                    if (isParticipant && totalPeople > 0) {
+                        myShare = e.amount / totalPeople;
+                    }
                 } else if (e.splitMethod === 'percentage') {
-                    const myPercent = Number(e.splitDetails?.['You'] || 0);
+                    const myPercent = Number(e.splitDetails?.[userName] || e.splitDetails?.['You'] || 0);
                     myShare = (e.amount * myPercent) / 100;
                 } else if (e.splitMethod === 'exact') {
-                    myShare = Number(e.splitDetails?.['You'] || 0);
+                    myShare = Number(e.splitDetails?.[userName] || e.splitDetails?.['You'] || 0);
                 }
 
                 monthData.amount += myShare;
@@ -54,7 +53,7 @@ export function AnalyticsView({ expenses }: { expenses: any[] }) {
         });
 
         return last6Months.map(d => ({ ...d, amount: Math.round(d.amount) }));
-    }, [expenses]);
+    }, [expenses, userName]);
 
     // 2. Calculate Category Breakdown
     const categoryData = useMemo(() => {
@@ -64,20 +63,25 @@ export function AnalyticsView({ expenses }: { expenses: any[] }) {
             if (e.category === 'Payment') return;
 
             const cat = e.category || 'Other';
-
             let myShare = 0;
-            const totalPeople = (e.participants?.length || 0) + 1;
+
+            const isParticipant = e.participants?.includes(userName) || e.participants?.includes('You');
+            const totalPeople = e.participants?.length || 0;
 
             if (e.splitMethod === 'equally') {
-                myShare = e.amount / totalPeople;
+                if (isParticipant && totalPeople > 0) {
+                    myShare = e.amount / totalPeople;
+                }
             } else if (e.splitMethod === 'percentage') {
-                const myPercent = Number(e.splitDetails?.['You'] || 0);
+                const myPercent = Number(e.splitDetails?.[userName] || e.splitDetails?.['You'] || 0);
                 myShare = (e.amount * myPercent) / 100;
             } else if (e.splitMethod === 'exact') {
-                myShare = Number(e.splitDetails?.['You'] || 0);
+                myShare = Number(e.splitDetails?.[userName] || e.splitDetails?.['You'] || 0);
             }
 
-            categories[cat] = (categories[cat] || 0) + myShare;
+            if (myShare > 0) {
+                categories[cat] = (categories[cat] || 0) + myShare;
+            }
         });
 
         const COLORS = ['#32dd9e', '#ff6d2f', '#3395ff', '#ffb02e', '#e645e6', '#9ea7b0'];
@@ -90,7 +94,7 @@ export function AnalyticsView({ expenses }: { expenses: any[] }) {
             }))
             .filter(i => i.value > 0)
             .sort((a, b) => b.value - a.value);
-    }, [expenses]);
+    }, [expenses, userName]);
 
     const totalSpending = categoryData.reduce((acc, curr) => acc + curr.value, 0);
 

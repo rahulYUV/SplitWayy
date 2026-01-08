@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// Firebase Storage Security Rules
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Expenses folder - accessible to authenticated users
+    match /expenses/{fileName} {
+      // Allow read if authenticated
+      allow read: if request.auth != null;
+      
+      // Allow write if authenticated and file is an image
+      allow write: if request.auth != null 
+                   && request.resource.size < 5 * 1024 * 1024  // Max 5MB
+                   && request.resource.contentType.matches('image/.*');
+    }
+    
+    // Profile pictures folder
+    match /profiles/{userId}/{fileName} {
+      // Allow read to all authenticated users
+      allow read: if request.auth != null;
+      
+      // Allow write only to own profile
+      allow write: if request.auth != null 
+                   && request.auth.uid == userId
+                   && request.resource.size < 2 * 1024 * 1024  // Max 2MB
+                   && request.resource.contentType.matches('image/.*');
+    }
+    
+    // Group icons folder  
+    match /groups/{groupId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null 
+                   && request.resource.size < 1 * 1024 * 1024  // Max 1MB
+                   && request.resource.contentType.matches('image/.*');
+    }
+    
+    // Default - deny everything else
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
