@@ -1,6 +1,6 @@
 import { ArrowLeft, Mail, MapPin, Phone } from "lucide-react";
 import { Link } from "react-router-dom";
-import LogoImg from "@/assets/images/LOGO.png";
+import LogoImg from "@/assets/images/Home.png";
 import { Button } from "@/components/ui/button";
 
 export function ContactUs() {
