@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: Geist, Inter, 'Open Sans', sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color-scheme: dark light;
@@ -219,6 +219,22 @@ body {
       stroke: #32dd9e;
     }
 
+  }
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0px);
+    }
+
+    50% {
+      transform: translateY(-20px);
+    }
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
   }
 }
 

@@ -4,8 +4,21 @@ import homeImg from "@/assets/images/Home.png";
 import flightImg from "@/assets/images/Flight.png";
 import lvImg from "@/assets/images/lv.png";
 import ridesImg from "@/assets/images/rides.png";
+import avatar1 from "@/assets/avatars/avatar1.svg";
+import avatar2 from "@/assets/avatars/avatar2.svg";
+import avatar3 from "@/assets/avatars/avatar3.svg";
+import avatar4 from "@/assets/avatars/avatar4.svg";
+import avatar5 from "@/assets/avatars/avatar5.svg";
 import { Plane, Home, Heart, Asterisk, Car } from 'lucide-react';
 import { FastSplitLiquidButton } from "@/components/ui/GithubLiquidButton";
+
+const FLOATING_AVATARS = [
+    { src: avatar1, top: '10%', left: ' 5%', delay: 0 },
+    { src: avatar2, top: '20%', right: '8%', delay: 1 },
+    { src: avatar3, bottom: '15%', left: '10%', delay: 2 },
+    { src: avatar4, top: '60%', right: '5%', delay: 0.5 },
+    { src: avatar5, bottom: '25%', right: '15%', delay: 1.5 },
+];
 
 const HERO_ITEMS = [
     {
@@ -78,72 +91,91 @@ export function Hero() {
     const currentItem = HERO_ITEMS[index];
 
     return (
-        <div className="flex flex-col-reverse md:flex-row items-center justify-between max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 mt-16 sm:mt-20 md:mt-32 lg:mt-24 w-full z-10 relative gap-6 sm:gap-8 md:gap-12">
+        <div className="relative w-full overflow-visible">
+            {/* Floating Avatars - Hidden on mobile, visible on lg+ screens */}
+            {FLOATING_AVATARS.map((avatar, i) => (
+                <img
+                    key={i}
+                    src={avatar.src}
+                    alt=""
+                    className="hidden lg:block absolute w-16 h-16 opacity-20 pointer-events-none animate-float"
+                    style={{
+                        top: avatar.top,
+                        bottom: avatar.bottom,
+                        left: avatar.left,
+                        right: avatar.right,
+                        animationDelay: `${avatar.delay}s`,
+                    }}
+                />
+            ))}
 
-            {/* Left Column: Content (Shows second on mobile, first on desktop) */}
-            <div className="flex-1 space-y-4 sm:space-y-6 text-center md:text-left max-w-xl w-full">
-                {/* Heading */}
-                <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-black leading-tight tracking-tight">
-                    Less stress when sharing expenses <br className="hidden sm:block" />
-                    <span
-                        className={cn(
-                            "inline-block transition-all duration-700 font-black ease-in-out transform",
-                            currentItem.color,
-                            fadeIn ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-4 scale-95"
-                        )}
-                    >
-                        {currentItem.text}
-                    </span>
-                </h1>
+            <div className="flex flex-col-reverse md:flex-row items-center justify-between max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 mt-16 sm:mt-20 md:mt-32 lg:mt-24 w-full z-10 relative gap-6 sm:gap-8 md:gap-12">
 
-                {/* Icons Row */}
-                <div className="flex gap-4 sm:gap-6 text-2xl text-gray-400 pt-2 items-center justify-center md:justify-start">
-                    {HERO_ITEMS.map((item, i) => (
-                        <item.Icon
-                            key={i}
-                            onClick={() => setIndex(i)}
+                {/* Left Column: Content (Shows second on mobile, first on desktop) */}
+                <div className="flex-1 space-y-4 sm:space-y-6 text-center md:text-left max-w-xl w-full">
+                    {/* Heading */}
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-black leading-tight tracking-tight">
+                        Less stress when sharing expenses <br className="hidden sm:block" />
+                        <span
                             className={cn(
-                                "w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 cursor-pointer transition-all duration-300",
-                                index === i ? `${item.activeColor} scale-110` : item.hoverColor
+                                "inline-block transition-all duration-700 font-black ease-in-out transform",
+                                currentItem.color,
+                                fadeIn ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-4 scale-95"
                             )}
-                        />
-                    ))}
+                        >
+                            {currentItem.text}
+                        </span>
+                    </h1>
+
+                    {/* Icons Row */}
+                    <div className="flex gap-4 sm:gap-6 text-2xl text-gray-400 pt-2 items-center justify-center md:justify-start">
+                        {HERO_ITEMS.map((item, i) => (
+                            <item.Icon
+                                key={i}
+                                onClick={() => setIndex(i)}
+                                className={cn(
+                                    "w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 lg:w-8 lg:h-8 cursor-pointer transition-all duration-300",
+                                    index === i ? `${item.activeColor} scale-110` : item.hoverColor
+                                )}
+                            />
+                        ))}
+                    </div>
+
+                    {/* Description */}
+                    <p className="text-sm sm:text-base md:text-lg text-gray-400 leading-relaxed max-w-lg mx-auto md:mx-0">
+                        Keep track of your shared expenses and balances with housemates, trips, groups, friends, and family.
+                    </p>
+
+                    {/* Buttons */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center md:justify-start gap-3 sm:gap-4 w-full">
+                        <button className={cn(
+                            "w-full sm:w-auto sm:flex-1 px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base md:text-lg font-bold text-white rounded-xl shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95",
+                            currentItem.bgColor
+                        )}>
+                            Split the <span className="lowercase">{currentItem.buttonText}</span>
+                        </button>
+
+                        <FastSplitLiquidButton className="h-[52px] sm:h-[60px] w-full sm:w-auto sm:flex-1 px-6 sm:px-8" />
+                    </div>
                 </div>
 
-                {/* Description */}
-                <p className="text-sm sm:text-base md:text-lg text-gray-400 leading-relaxed max-w-lg mx-auto md:mx-0">
-                    Keep track of your shared expenses and balances with housemates, trips, groups, friends, and family.
-                </p>
-
-                {/* Buttons */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center md:justify-start gap-3 sm:gap-4 w-full">
-                    <button className={cn(
-                        "w-full sm:w-auto sm:flex-1 px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base md:text-lg font-bold text-white rounded-xl shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95",
-                        currentItem.bgColor
-                    )}>
-                        Split the <span className="lowercase">{currentItem.buttonText}</span>
-                    </button>
-
-                    <FastSplitLiquidButton className="h-[52px] sm:h-[60px] w-full sm:w-auto sm:flex-1 px-6 sm:px-8" />
-                </div>
-            </div>
-
-            {/* Right Column: Dynamic Image (Shows first on mobile, second on desktop) */}
-            <div className="flex-1 flex justify-center items-center relative w-full max-w-sm sm:max-w-md md:max-w-lg">
-                <div className="relative w-full h-[240px] sm:h-[320px] md:h-[380px] lg:h-[450px] flex items-center justify-center overflow-hidden">
-                    {HERO_ITEMS.map((item, i) => (
-                        <img
-                            key={i}
-                            src={item.image}
-                            alt="Feature"
-                            className={cn(
-                                "absolute w-auto h-full max-h-full object-contain transition-all duration-[2500ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] transform",
-                                i === index
-                                    ? "opacity-100 translate-x-0 scale-100"
-                                    : "opacity-0 translate-x-24 scale-95"
-                            )}
-                        />
-                    ))}
+                {/* Right Column: Dynamic Image (Shows first on mobile, second on desktop) */}
+                <div className="flex-1 flex justify-center items-center relative w-full max-w-sm sm:max-w-md md:max-w-lg">
+                    <div className="relative w-full h-[240px] sm:h-[320px] md:h-[380px] lg:h-[450px] flex items-center justify-center overflow-hidden">
+                        {HERO_ITEMS.map((item, i) => (
+                            <img
+                                key={i}
+                                src={item.image}
+                                alt="Feature"
+                                className={cn(
+                                    "absolute w-auto h-full max-h-full object-contain transition-all duration-[2500ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] transform",
+                                    i === index
+                                        ? "opacity-100 translate-x-0 scale-100"
+                                        : "opacity-0 translate-x-24 scale-95"
+                                )}
+                            />
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>
