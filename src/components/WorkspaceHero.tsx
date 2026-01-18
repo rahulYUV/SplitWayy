@@ -88,7 +88,7 @@ export function WorkspaceHero({ user, showOnboarding, onOnboardingComplete }: Wo
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 0.15 }}
                             className="absolute top-[12%] right-[32%] text-2xl font-mono text-white uppercase tracking-[0.5em]"
-                        >FAIRNESS SYSTEM v2.0</motion.span>
+                        >:p</motion.span>
                     </div>
                 </div>
 

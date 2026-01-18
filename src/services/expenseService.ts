@@ -11,6 +11,15 @@ import {
     Timestamp
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { arrayUnion } from "firebase/firestore";
+
+export interface Comment {
+    id: string;
+    text: string;
+    userId: string;
+    userName: string; // Snapshot of name at time of comment
+    createdAt: Date | string;
+}
 
 export interface Expense {
     id: string;
@@ -34,6 +43,7 @@ export interface Expense {
         active: boolean;
         nextDue: Date | string;
     } | null;
+    comments?: Comment[]; // Array of comments
 }
 
 const EXPENSES_COLLECTION = "expenses";
@@ -125,4 +135,20 @@ export const uploadBillImage = async (file: File): Promise<string> => {
     const storageRef = ref(storage, `bills/${Date.now()}_${file.name}`);
     const snapshot = await uploadBytes(storageRef, file);
     return getDownloadURL(snapshot.ref);
+};
+
+export const addCommentToExpense = async (expenseId: string, comment: Omit<Comment, "id" | "createdAt">) => {
+    const docRef = doc(db, EXPENSES_COLLECTION, expenseId);
+
+    const newComment: Comment = {
+        id: crypto.randomUUID(),
+        ...comment,
+        createdAt: new Date().toISOString()
+    };
+
+    await updateDoc(docRef, {
+        comments: arrayUnion(newComment)
+    });
+
+    return newComment;
 };

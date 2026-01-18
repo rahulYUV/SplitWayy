@@ -1,10 +1,15 @@
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Hero } from "@/components/Hero";
-import { Features } from "@/components/Features";
+
 import { FooterSection } from "@/components/FooterSection";
 import { MainFooter } from "@/components/MainFooter";
 import { GridPattern } from "@/components/ui/shadcn-io/grid-pattern";
 import { cn } from "@/lib/utils";
+
+import { AmbiLightPlayer } from "@/components/AmbiLightPlayer";
+import integrationVideo from "@/assets/videos/integration.mp4";
+import { BusinessCardShowcase } from "@/components/BusinessCardShowcase";
+import { HowItWorks } from "@/components/HowItWorks";
 
 export function LandingPage() {
     const { scrollY } = useScroll();
@@ -32,12 +37,20 @@ export function LandingPage() {
             </motion.div>
 
             <main className="w-full flex flex-col items-center relative z-10">
-                {/* Full-screen wrapper to maintain original Hero centering */}
                 <div className="min-h-screen w-full flex items-center justify-center">
                     <Hero />
                 </div>
+
+                <HowItWorks />
+
                 <FooterSection />
-                <Features />
+
+                {/* Integration Video with AmbiLight Effect */}
+                <AmbiLightPlayer src={integrationVideo} />
+
+                {/* Business Card Showcase Section */}
+                <BusinessCardShowcase />
+
                 <MainFooter />
             </main>
         </>

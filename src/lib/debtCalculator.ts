@@ -117,3 +117,108 @@ export function calculateDebts(expenses: Expense[]): Debt[] {
 
     return debts;
 }
+
+/**
+ * Smart Debt Simplification (Greedy Algorithm)
+ * Minimizes the number of transactions by greedy matching max debtor with max creditor.
+ * @param expenses List of expenses
+ * @param currentUserName Optional: Current user's name to normalize "You" aliasing
+ */
+export function calculateSmartDebts(expenses: Expense[], currentUserName?: string): Debt[] {
+    const balances: Record<string, number> = {};
+
+    const normalize = (name: string) => {
+        if (!currentUserName) return name;
+        if (name === "You") return currentUserName;
+        if (name === currentUserName) return currentUserName;
+        return name;
+    }
+
+    // 1. Calculate Balances
+    expenses.forEach(expense => {
+        let totalPaid = 0;
+        if (expense.paidBy === 'multiple' && expense.payerDetails) {
+            Object.entries(expense.payerDetails).forEach(([name, amount]) => {
+                const val = Number(amount);
+                const normalizedName = normalize(name);
+                balances[normalizedName] = (balances[normalizedName] || 0) + val;
+                totalPaid += val;
+            });
+        } else {
+            const payer = normalize(expense.paidBy);
+            const val = Number(expense.amount);
+            balances[payer] = (balances[payer] || 0) + val;
+            totalPaid = val;
+        }
+
+        const count = expense.participants.length;
+        if (count === 0) return;
+
+        if (expense.splitMethod === 'equally') {
+            const splitAmount = expense.amount / count;
+            expense.participants.forEach(p => {
+                const normalizedP = normalize(p);
+                balances[normalizedP] = (balances[normalizedP] || 0) - splitAmount;
+            });
+        } else if (expense.splitMethod === 'percentage' && expense.splitDetails) {
+            Object.entries(expense.splitDetails).forEach(([name, percentStr]) => {
+                const normalizedName = normalize(name);
+                const amountKey = Math.round((expense.amount * Number(percentStr))) / 100;
+                balances[normalizedName] = (balances[normalizedName] || 0) - amountKey;
+            });
+        } else if (expense.splitDetails) {
+            Object.entries(expense.splitDetails).forEach(([name, amountStr]) => {
+                const normalizedName = normalize(name);
+                balances[normalizedName] = (balances[normalizedName] || 0) - Number(amountStr);
+            });
+        } else {
+            const splitAmount = expense.amount / expense.participants.length;
+            expense.participants.forEach(p => {
+                const normalizedP = normalize(p);
+                balances[normalizedP] = (balances[normalizedP] || 0) - splitAmount;
+            });
+        }
+    });
+
+    const debtors: { name: string, amount: number }[] = [];
+    const creditors: { name: string, amount: number }[] = [];
+
+    Object.entries(balances).forEach(([name, balance]) => {
+        const net = Math.round(balance * 100) / 100;
+        if (net < -0.01) debtors.push({ name, amount: -net });
+        if (net > 0.01) creditors.push({ name, amount: net });
+    });
+
+    // Sort Descending - Key for Minimizing Transactions
+    debtors.sort((a, b) => b.amount - a.amount);
+    creditors.sort((a, b) => b.amount - a.amount);
+
+    const smartDebts: Debt[] = [];
+    let i = 0;
+    let j = 0;
+
+    while (i < debtors.length && j < creditors.length) {
+        const debtor = debtors[i];
+        const creditor = creditors[j];
+
+        // Skip Dust
+        if (debtor.amount < 0.01) { i++; continue; }
+        if (creditor.amount < 0.01) { j++; continue; }
+
+        const amount = Math.min(debtor.amount, creditor.amount);
+
+        smartDebts.push({
+            from: debtor.name,
+            to: creditor.name,
+            amount: Math.round(amount * 100) / 100
+        });
+
+        debtor.amount -= amount;
+        creditor.amount -= amount;
+
+        if (debtor.amount < 0.01) i++;
+        if (creditor.amount < 0.01) j++;
+    }
+
+    return smartDebts;
+}

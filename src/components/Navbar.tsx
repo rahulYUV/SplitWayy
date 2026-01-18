@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useState, useEffect } from 'react';
 import logo from "../assets/images/Home.png";
 import { User, signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -36,6 +37,20 @@ export function Navbar({ className, onSignUpClick, onLoginClick, user, profile, 
     };
 
     const isDashboard = variant === 'dashboard';
+
+    const [firestorePhotoURL, setFirestorePhotoURL] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (user?.uid) {
+            import("@/services/userService").then(({ getUserProfile }) => {
+                getUserProfile(user.uid).then(profile => {
+                    if (profile?.photoURL) {
+                        setFirestorePhotoURL(profile.photoURL)
+                    }
+                })
+            })
+        }
+    }, [user?.uid]);
 
     return (
         <div className={cn(
@@ -81,7 +96,7 @@ export function Navbar({ className, onSignUpClick, onLoginClick, user, profile, 
                                 <DropdownMenuTrigger asChild>
                                     <button className="flex items-center gap-2 pl-1 pr-3 py-1 bg-[#32dd9e] hover:bg-[#2bc58d] rounded-full transition-all shadow-lg hover:shadow-[#32dd9e]/20 hover:scale-105 active:scale-95 group outline-none">
                                         <Avatar className="h-8 w-8 border-2 border-white/20">
-                                            <AvatarImage src={profile?.photoURL || user.photoURL || undefined} alt="User" />
+                                            <AvatarImage src={firestorePhotoURL || profile?.photoURL || user.photoURL || undefined} alt="User" />
                                             <AvatarFallback className="bg-white/20 text-white">
                                                 {(profile?.displayName || user.displayName)?.charAt(0) || "U"}
                                             </AvatarFallback>

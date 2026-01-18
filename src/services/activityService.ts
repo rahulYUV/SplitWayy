@@ -27,6 +27,7 @@ export interface Activity {
     userId?: string; // The actual UID of the creator
     createdAt: Date;
     relatedGroupId?: string;
+    expenseId?: string;
     visibleToUserEmails?: string[]; // Array of emails who can see this activity
 }
 
@@ -92,5 +93,35 @@ export const subscribeToActivities = (userId: string | undefined, userEmail: str
         // Handle index errors or permission errors gracefully
         console.warn("Activity subscription error (likely missing index or permission):", error);
         callback([]);
+    });
+};
+
+export const subscribeToExpenseActivities = (expenseId: string, callback: (activities: Activity[]) => void) => {
+    const q = query(
+        collection(db, ACTIVITY_COLLECTION),
+        where("expenseId", "==", expenseId),
+        orderBy("createdAt", "desc")
+    );
+
+    return onSnapshot(q, (snapshot) => {
+        const activities = snapshot.docs.map(doc => {
+            const data = doc.data();
+            let createdAt = data.createdAt;
+            if (createdAt instanceof Timestamp) {
+                createdAt = createdAt.toDate();
+            }
+
+            // Parse nested dates if any
+            let details = data.details || {};
+            if (details && typeof details === 'object') {
+                details = { ...details };
+                if (details.deletedAt instanceof Timestamp) details.deletedAt = details.deletedAt.toDate();
+                if (details.createdAt instanceof Timestamp) details.createdAt = details.createdAt.toDate();
+                if (details.date instanceof Timestamp) details.date = details.date.toDate();
+            }
+
+            return { id: doc.id, ...data, createdAt, details } as Activity;
+        });
+        callback(activities);
     });
 };

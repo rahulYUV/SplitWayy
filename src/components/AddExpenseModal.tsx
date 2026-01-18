@@ -352,6 +352,7 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
                         },
                         createdBy: userName || "You",
                         userId: auth.currentUser?.uid,
+                        expenseId: initialData?.id,
                         visibleToUserEmails: pEmails
                     });
                 }
@@ -447,7 +448,10 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
         }
     }
 
-    const friendsList = friends.map(f => f.displayName).filter((n): n is string => !!n)
+    const friendsList = friends
+        .map(f => f.displayName)
+        .filter((n): n is string => !!n)
+        .filter(n => n.toLowerCase() !== userName?.toLowerCase())
 
     const toggleParticipant = (friend: string) => {
         const current = form.getValues("participants")

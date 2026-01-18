@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { NavLink } from "react-router-dom"
-import { Plus, ArrowUpRight, ChevronDown, ChevronUp } from "lucide-react"
+import { Plus, ArrowUpRight, ChevronDown, ChevronUp, LayoutDashboard, Activity, Users, Layers } from "lucide-react"
 import {
     Sidebar,
     SidebarContent,
@@ -21,18 +21,36 @@ import { auth } from "@/lib/firebase"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import CanvasCursor from "@/components/ui/CanvasCursor"
 
+import { User } from "firebase/auth";
+
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
     forceExpanded?: boolean
+    user?: User | null
 }
 
-export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
+export function AppSidebar({ forceExpanded, user, ...props }: AppSidebarProps) {
     const { getFriendBalance, expenses, groups, friends } = useExpenses()
     const { open } = useSidebar()
     const isCollapsed = forceExpanded ? false : !open
     const [showAllGroups, setShowAllGroups] = useState(false)
     const [showAllFriends, setShowAllFriends] = useState(false)
 
-    const userName = auth.currentUser?.displayName || "User"
+    const currentUser = user || auth.currentUser
+    const [firestorePhotoURL, setFirestorePhotoURL] = useState<string | null>(null)
+    const userName = currentUser?.displayName || "User"
+    const userEmail = currentUser?.email?.toLowerCase()
+
+    useEffect(() => {
+        if (currentUser?.uid) {
+            import("@/services/userService").then(({ getUserProfile }) => {
+                getUserProfile(currentUser.uid).then(profile => {
+                    if (profile?.photoURL) {
+                        setFirestorePhotoURL(profile.photoURL)
+                    }
+                })
+            })
+        }
+    }, [currentUser?.uid])
 
     // Deduplicate friends by name (case-insensitive)
     const friendsFromContext = friends.map(f => ({
@@ -54,14 +72,46 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
             url: `/friend/${name.toLowerCase().replace(/\s+/g, '-')}`
         }))
 
+    const normalize = (str: string) => {
+        return str
+            .toLowerCase()
+            .trim()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[^a-z0-9]/g, "") // Remove all non-alphanumeric characters including spaces
+    }
+
+    const normUserName = normalize(userName)
+
+    // Also normalize parts of the name for fallback checks
+    const userNameParts = userName.toLowerCase().trim().split(/\s+/)
+    const userFirstName = normalize(userNameParts[0])
+
     const seenNames = new Set<string>()
     const allFriends = [...friendsFromContext, ...customFriends].filter(friend => {
         const lowerName = friend.title.toLowerCase().trim()
-        const lowerUserName = userName.toLowerCase().trim()
-        const userFirstName = lowerUserName.split(' ')[0]
+        const normFriendName = normalize(friend.title)
 
-        // Filter out current user and "You"
-        if (lowerName === "you" || lowerName === lowerUserName || lowerName === userFirstName) return false
+        // Robust filtering of current user
+        if (normFriendName === "you") return false
+        if (normFriendName === normUserName) return false
+
+        // Check if the friend name is just the first name of the user (e.g. "Rahul" vs "Rahul Kumar")
+        if (normFriendName === userFirstName && userNameParts.length > 1) return false
+
+        // Check if the friend name contains the user name or vice versa (be careful with short names)
+        // If user is "Rahul Kumar" and friend is "Rahul Kumar Singh", maybe same person? 
+        // For now, let's stick to the containment if names are long enough to avoid false positives (like "Al" vs "Alex")
+        if (normFriendName.length > 3 && normUserName.length > 3) {
+            if (normFriendName.includes(normUserName) || normUserName.includes(normFriendName)) {
+                // Double check: if explicit email mismatch, don't filter. But here we don't have friend email easily for custom friends.
+                // Let's assume name collision + containment = same person in the context of "my friends list"
+                return false
+            }
+        }
+
+        // Exact email match check if friend title looks like an email
+        if (userEmail && lowerName === userEmail) return false
 
         if (seenNames.has(lowerName)) {
             return false
@@ -93,16 +143,14 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
             <div className="h-full flex flex-col p-6 group-data-[collapsible=icon]:p-2">
                 {!isCollapsed ? (
                     <AddExpenseModal userName={userName}>
-                        <button className="w-full mb-8 group">
-                            <div className="bg-gradient-to-br from-gray-900 to-gray-800 hover:from-gray-800 hover:to-gray-700 text-white rounded-2xl p-4 transition-all hover:scale-[1.02] active:scale-[0.98] hover:shadow-xl">
-                                <div className="flex items-center justify-between">
-                                    <div className="text-left">
-                                        <p className="text-xs text-gray-400 mb-0.5">Quick Action</p>
-                                        <p className="font-bold text-base">Add New Expense</p>
-                                    </div>
-                                    <div className="bg-[#32dd9e] rounded-full p-2 group-hover:rotate-12 transition-transform">
-                                        <ArrowUpRight className="w-4 h-4 text-gray-900" />
-                                    </div>
+                        <button className="w-full mb-8 group outline-none">
+                            <div className="relative flex items-center justify-between w-full p-1.5 bg-gray-900 rounded-2xl transition-all duration-300 hover:shadow-lg hover:shadow-gray-900/20 hover:-translate-y-0.5 active:translate-y-0">
+                                <div className="flex flex-col items-start pl-3.5 py-2.5">
+                                    <span className="text-[10px] font-bold tracking-widest text-gray-400 uppercase mb-0.5 group-hover:text-[#32dd9e] transition-colors">Quick Add</span>
+                                    <span className="text-sm font-bold text-white tracking-wide">Expense</span>
+                                </div>
+                                <div className="flex items-center justify-center w-10 h-10 bg-[#32dd9e] rounded-xl text-gray-900 transition-all duration-300 group-hover:scale-105 group-hover:rotate-90 shadow-lg shadow-[#32dd9e]/20">
+                                    <Plus className="w-5 h-5" strokeWidth={3} />
                                 </div>
                             </div>
                         </button>
@@ -137,46 +185,56 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
                         <SidebarGroupContent>
                             <SidebarMenu>
                                 <SidebarMenuItem>
-                                    <SidebarMenuButton asChild className="hover:bg-gray-50 transition-colors px-1">
-                                        <NavLink to="/">
+                                    <SidebarMenuButton asChild className="group/menu-btn hover:bg-transparent transition-colors px-0 py-1">
+                                        <NavLink to="/" className="w-full">
                                             {({ isActive }) => (
-                                                <>
-                                                    <span className="text-sm text-gray-400">/</span>
+                                                <div className={cn(
+                                                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group-hover/menu-btn:bg-gray-50",
+                                                    isActive ? "bg-gray-100 shadow-sm" : "hover:bg-gray-50"
+                                                )}>
+                                                    <div className={cn(
+                                                        "p-1.5 rounded-lg transition-colors",
+                                                        isActive ? "bg-white text-[#32dd9e] shadow-sm" : "bg-gray-100 text-gray-500 group-hover/menu-btn:bg-white group-hover/menu-btn:text-gray-700"
+                                                    )}>
+                                                        <LayoutDashboard className="w-4 h-4" />
+                                                    </div>
                                                     {!isCollapsed && (
                                                         <span className={cn(
-                                                            "text-lg transition-colors relative",
-                                                            isActive ? "font-bold text-red-500" : "font-semibold text-gray-900"
+                                                            "text-sm font-medium transition-colors",
+                                                            isActive ? "text-gray-900" : "text-gray-600 group-hover/menu-btn:text-gray-900"
                                                         )}>
                                                             Dashboard
-                                                            {isActive && (
-                                                                <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-red-500 animate-in slide-in-from-left duration-300" />
-                                                            )}
                                                         </span>
                                                     )}
-                                                </>
+                                                </div>
                                             )}
                                         </NavLink>
                                     </SidebarMenuButton>
                                 </SidebarMenuItem>
 
                                 <SidebarMenuItem>
-                                    <SidebarMenuButton asChild className="hover:bg-gray-50 transition-colors px-1">
-                                        <NavLink to="/activity">
+                                    <SidebarMenuButton asChild className="group/menu-btn hover:bg-transparent transition-colors px-0 py-1">
+                                        <NavLink to="/activity" className="w-full">
                                             {({ isActive }) => (
-                                                <>
-                                                    <span className="text-sm text-gray-400">/</span>
+                                                <div className={cn(
+                                                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group-hover/menu-btn:bg-gray-50",
+                                                    isActive ? "bg-gray-100 shadow-sm" : "hover:bg-gray-50"
+                                                )}>
+                                                    <div className={cn(
+                                                        "p-1.5 rounded-lg transition-colors",
+                                                        isActive ? "bg-white text-[#32dd9e] shadow-sm" : "bg-gray-100 text-gray-500 group-hover/menu-btn:bg-white group-hover/menu-btn:text-gray-700"
+                                                    )}>
+                                                        <Activity className="w-4 h-4" />
+                                                    </div>
                                                     {!isCollapsed && (
                                                         <span className={cn(
-                                                            "text-lg transition-colors relative",
-                                                            isActive ? "font-bold text-red-500" : "font-semibold text-gray-900"
+                                                            "text-sm font-medium transition-colors",
+                                                            isActive ? "text-gray-900" : "text-gray-600 group-hover/menu-btn:text-gray-900"
                                                         )}>
                                                             Activity
-                                                            {isActive && (
-                                                                <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-red-500 animate-in slide-in-from-left duration-300" />
-                                                            )}
                                                         </span>
                                                     )}
-                                                </>
+                                                </div>
                                             )}
                                         </NavLink>
                                     </SidebarMenuButton>
@@ -188,14 +246,14 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
                     {/* Groups Section - Minimal */}
                     <div className="pt-6">
                         {!isCollapsed && (
-                            <div className="flex items-center justify-between px-1 mb-3">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-sm text-gray-400">/</span>
-                                    <h3 className="text-base font-bold uppercase tracking-wider text-gray-900">Groups</h3>
+                            <div className="flex items-center justify-between px-3 mb-2">
+                                <div className="flex items-center gap-2 text-gray-400">
+                                    <Layers className="w-3.5 h-3.5" />
+                                    <h3 className="text-xs font-bold uppercase tracking-wider">Groups</h3>
                                 </div>
                                 <CreateGroupModal>
-                                    <button className="p-1.5 hover:bg-[#32dd9e]/10 rounded-lg transition-all hover:scale-110">
-                                        <Plus className="w-4 h-4 text-gray-900 hover:text-[#32dd9e]" />
+                                    <button className="p-1 hover:bg-gray-100 rounded-lg transition-all text-gray-400 hover:text-[#32dd9e]">
+                                        <Plus className="w-4 h-4" />
                                     </button>
                                 </CreateGroupModal>
                             </div>
@@ -212,23 +270,26 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
                                 <>
                                     {(showAllGroups ? sidebarGroups : sidebarGroups.slice(0, 3)).map((group) => (
                                         <SidebarMenuItem key={group.url}>
-                                            <SidebarMenuButton asChild className="hover:bg-gray-50 transition-colors px-1">
-                                                <NavLink to={group.url}>
+                                            <SidebarMenuButton asChild className="group/item hover:bg-transparent transition-colors px-0 py-0.5">
+                                                <NavLink to={group.url} className="w-full">
                                                     {({ isActive }) => (
-                                                        <>
-                                                            <span className="text-sm text-gray-400">/</span>
+                                                        <div className={cn(
+                                                            "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200",
+                                                            isActive ? "bg-gray-50 text-gray-900" : "text-gray-500 hover:bg-gray-50/50 hover:text-gray-700"
+                                                        )}>
+                                                            <div className={cn(
+                                                                "w-1.5 h-1.5 rounded-full transition-colors",
+                                                                isActive ? "bg-[#32dd9e]" : "bg-gray-300 group-hover/item:bg-gray-400"
+                                                            )} />
                                                             {!isCollapsed && (
                                                                 <span className={cn(
-                                                                    "text-base transition-colors relative",
-                                                                    isActive ? "font-bold text-red-500" : "font-medium text-gray-900"
+                                                                    "text-sm font-medium truncate",
+                                                                    isActive && "font-semibold"
                                                                 )}>
                                                                     {group.title}
-                                                                    {isActive && (
-                                                                        <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-red-500 animate-in slide-in-from-left duration-300" />
-                                                                    )}
                                                                 </span>
                                                             )}
-                                                        </>
+                                                        </div>
                                                     )}
                                                 </NavLink>
                                             </SidebarMenuButton>
@@ -254,7 +315,9 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
                                     )}
                                 </>
                             ) : !isCollapsed ? (
-                                <p className="text-xs text-gray-400 px-1 py-2">No groups yet</p>
+                                <div className="mx-2 px-3 py-6 text-center border border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                                    <p className="text-[10px] text-gray-400 font-medium">No groups yet</p>
+                                </div>
                             ) : null}
                         </SidebarMenu>
                     </div>
@@ -262,9 +325,11 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
                     {/* Friends Section - Minimal */}
                     <div className="pt-6">
                         {!isCollapsed && (
-                            <div className="flex items-center gap-2 px-1 mb-3">
-                                <span className="text-sm text-gray-400">/</span>
-                                <h3 className="text-base font-bold uppercase tracking-wider text-gray-900">Friends</h3>
+                            <div className="flex items-center justify-between px-3 mb-2">
+                                <div className="flex items-center gap-2 text-gray-400">
+                                    <Users className="w-3.5 h-3.5" />
+                                    <h3 className="text-xs font-bold uppercase tracking-wider">Friends</h3>
+                                </div>
                             </div>
                         )}
                         <SidebarMenu className="space-y-0.5">
@@ -272,34 +337,39 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
                                 const balance = getFriendBalance(friend.title)
                                 return (
                                     <SidebarMenuItem key={friend.url}>
-                                        <SidebarMenuButton asChild className="hover:bg-gray-50 transition-colors px-1">
-                                            <NavLink to={friend.url}>
+                                        <SidebarMenuButton asChild className="group/item hover:bg-transparent transition-colors px-0 py-0.5">
+                                            <NavLink to={friend.url} className="w-full">
                                                 {({ isActive }) => (
-                                                    <>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-sm text-gray-400">/</span>
-                                                            {!isCollapsed && (
+                                                    <div className={cn(
+                                                        "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200",
+                                                        isActive ? "bg-gray-50 text-gray-900" : "text-gray-500 hover:bg-gray-50/50 hover:text-gray-700"
+                                                    )}>
+                                                        <div className={cn(
+                                                            "flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-[10px] font-bold text-gray-500 group-hover/item:bg-white group-hover/item:shadow-sm transition-all",
+                                                            isActive && "bg-[#32dd9e]/10 text-[#32dd9e]"
+                                                        )}>
+                                                            {friend.title.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        {!isCollapsed && (
+                                                            <div className="flex flex-1 items-center justify-between min-w-0">
                                                                 <span className={cn(
-                                                                    "text-base transition-colors relative",
-                                                                    isActive ? "font-bold text-red-500" : "font-medium text-gray-900"
+                                                                    "text-sm font-medium truncate pr-2",
+                                                                    isActive && "font-semibold"
                                                                 )}>
                                                                     {friend.title}
-                                                                    {isActive && (
-                                                                        <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-red-500 animate-in slide-in-from-left duration-300" />
-                                                                    )}
                                                                 </span>
-                                                            )}
-                                                        </div>
-                                                        {balance !== 0 && !isCollapsed && (
-                                                            <span className={cn(
-                                                                "text-sm font-bold flex items-center gap-0.5 ml-auto",
-                                                                balance > 0 ? 'text-[#32dd9e]' : 'text-red-400'
-                                                            )}>
-                                                                <CurrencyRupeeIcon size={9} />
-                                                                {Math.abs(balance).toFixed(0)}
-                                                            </span>
+                                                                {balance !== 0 && (
+                                                                    <span className={cn(
+                                                                        "text-xs font-bold flex items-center shrink-0",
+                                                                        balance > 0 ? 'text-[#32dd9e]' : 'text-red-400'
+                                                                    )}>
+                                                                        <CurrencyRupeeIcon size={10} className="mr-px" />
+                                                                        {Math.abs(balance).toFixed(0)}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         )}
-                                                    </>
+                                                    </div>
                                                 )}
                                             </NavLink>
                                         </SidebarMenuButton>
@@ -325,7 +395,9 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
                                 </button>
                             )}
                             {allFriends.length === 0 && !isCollapsed && (
-                                <p className="text-xs text-gray-400 px-1 py-2">No friends yet</p>
+                                <div className="mx-2 px-3 py-6 text-center border border-dashed border-gray-200 rounded-xl bg-gray-50/50">
+                                    <p className="text-[10px] text-gray-400 font-medium">No friends yet</p>
+                                </div>
                             )}
                         </SidebarMenu>
                     </div>
@@ -338,21 +410,21 @@ export function AppSidebar({ forceExpanded, ...props }: AppSidebarProps) {
                         <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition-all">
                             <Avatar className="w-9 h-9">
                                 <AvatarImage
-                                    src={auth.currentUser?.photoURL || undefined}
-                                    alt={auth.currentUser?.displayName || "User"}
+                                    src={firestorePhotoURL || currentUser?.photoURL || undefined}
+                                    alt={currentUser?.displayName || "User"}
                                 />
                                 <AvatarFallback className="bg-gray-900 text-white text-xs font-bold">
-                                    {auth.currentUser?.displayName?.charAt(0).toUpperCase() || "U"}
+                                    {currentUser?.displayName?.charAt(0).toUpperCase() || "U"}
                                 </AvatarFallback>
                             </Avatar>
                             <div className="flex-1 overflow-hidden">
                                 {!isCollapsed && (
                                     <>
                                         <p className="text-sm font-semibold text-gray-900 truncate">
-                                            {auth.currentUser?.displayName || "User"}
+                                            {currentUser?.displayName || "User"}
                                         </p>
                                         <p className="text-xs text-gray-500 truncate">
-                                            {auth.currentUser?.email}
+                                            {currentUser?.email}
                                         </p>
                                     </>
                                 )}

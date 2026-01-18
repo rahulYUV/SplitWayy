@@ -50,7 +50,8 @@ export const syncUserProfile = async (user: any, additionalData?: Partial<UserPr
         uid: user.uid,
         email: user.email,
         displayName: user.displayName || userSnap.data()?.displayName || "New User",
-        photoURL: user.photoURL || userSnap.data()?.photoURL || "",
+        // Prioritize existing Firestore photoURL (e.g. custom avatar) over Auth photoURL
+        photoURL: userSnap.data()?.photoURL || user.photoURL || "",
         currency: additionalData?.currency || userSnap.data()?.currency || "INR",
         timezone: userSnap.data()?.timezone || "GMT+05:30",
         language: userSnap.data()?.language || "English",
@@ -76,7 +77,8 @@ export const syncUserProfile = async (user: any, additionalData?: Partial<UserPr
             await updateDoc(userRef, {
                 lastLogin: serverTimestamp(),
                 displayName: user.displayName || userSnap.data().displayName,
-                photoURL: user.photoURL || userSnap.data().photoURL,
+                // Avoid overwriting custom avatar with Auth photo
+                photoURL: userSnap.data().photoURL || user.photoURL,
                 recentVisits: existingVisits,
             });
         } catch (error) {

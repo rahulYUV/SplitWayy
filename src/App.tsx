@@ -84,10 +84,10 @@ function App() {
 
   if (isInitializing) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-background text-white">
+      <div className="h-screen w-full flex items-center justify-center bg-white text-black">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-[#32dd9e] border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-400 font-bold tracking-widest uppercase text-xs">Initializing SplitWayy...</p>
+          <p className="text-gray-400 font-bold tracking-widest uppercase text-xs">Loading SplitWayy...</p>
         </div>
       </div>
     );

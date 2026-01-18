@@ -30,7 +30,7 @@ export function DashboardLayout({ user, profile, showOnboarding, onOnboardingCom
 
                 {/* Sticky Sidebar Container (Desktop Only) */}
                 <div className="sticky top-0 h-screen hidden lg:block z-20">
-                    <AppSidebar />
+                    <AppSidebar user={user} />
                 </div>
 
                 {/* Main Content Area - Scrollable */}

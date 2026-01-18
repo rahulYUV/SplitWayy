@@ -438,29 +438,10 @@ export function LoginLiquidButton({ className, onClick }: { className?: string; 
     );
 }
 
-// Red Palette for Fast Split Button
-const FAST_SPLIT_COLORS: Colors = {
-    color1: '#FFFFFF',
-    color2: '#DC2626', // Red 600
-    color3: '#F87171', // Red 400
-    color4: '#FEF2F2', // Red 50
-    color5: '#FEE2E2', // Red 100
-    color6: '#FCA5A5', // Red 300
-    color7: '#B91C1C', // Red 700
-    color8: '#991B1B', // Red 800
-    color9: '#FECACA', // Red 200
-    color10: '#A3A3A3',
-    color11: '#F3F3F3',
-    color12: '#1C1C1C',
-    color13: '#383838',
-    color14: '#545454',
-    color15: '#707070',
-    color16: '#8C8C8C',
-    color17: '#A8A8A8',
-};
+
 
 export function FastSplitLiquidButton({ className }: { className?: string }) {
-    const [isHovered, setIsHovered] = useState(false);
+    // const [isHovered, setIsHovered] = useState(false); // No longer needed
 
     return (
         <a
@@ -470,12 +451,11 @@ export function FastSplitLiquidButton({ className }: { className?: string }) {
                 className
             )}
             style={{ width: 'fit-content', minWidth: '130px' }}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+        // onMouseEnter={() => setIsHovered(true)} // No longer needed
+        // onMouseLeave={() => setIsHovered(false)} // No longer needed
         >
-            <div className="absolute inset-0 w-full h-full pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity">
-                <Liquid isHovered={isHovered} colors={FAST_SPLIT_COLORS} />
-            </div>
+            {/* Liquid effect removed and replaced with a subtle gradient or just the solid bg */}
+            <div className="absolute inset-0 bg-gradient-to-tr from-red-600 to-red-500 opacity-100 transition-opacity" />
 
             <div className="absolute inset-0 bg-black/10 backdrop-blur-[0px] group-hover:backdrop-blur-none transition-all" />
 

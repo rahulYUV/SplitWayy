@@ -12,11 +12,13 @@ import {
     Trash2,
     Users,
     Heart,
-    Receipt
+    Receipt,
+    LayoutList
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { calculateSmartDebts } from "@/lib/debtCalculator";
 
 import { AddExpenseModal } from "./AddExpenseModal";
 import { useParams, useNavigate } from "react-router-dom";
@@ -305,25 +307,25 @@ export function GroupView({ userName }: { userName: string }) {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 md:gap-4 w-full md:w-auto">
                     <AddExpenseModal userName={userName} groupId={group.id}>
-                        <Button className="bg-[#ff6d2f] hover:bg-[#ff8552] text-white font-black uppercase italic px-6 md:px-10 h-12 md:h-16 rounded-[1.5rem] shadow-[0_4px_0_#9c3d14] md:shadow-[0_8px_0_#9c3d14] active:shadow-none active:translate-y-[4px] md:active:translate-y-[8px] transition-all border border-white/10 flex items-center gap-2 md:gap-4 text-sm md:text-xl group w-full md:w-auto">
+                        <Button className="flex-1 md:flex-none bg-[#ff6d2f] hover:bg-[#ff8552] text-white font-black uppercase italic px-4 md:px-10 h-12 md:h-16 rounded-[1.5rem] shadow-[0_4px_0_#9c3d14] md:shadow-[0_8px_0_#9c3d14] active:shadow-none active:translate-y-[4px] md:active:translate-y-[8px] transition-all border border-white/10 flex items-center justify-center gap-2 md:gap-4 text-xs md:text-xl group">
                             <Plus className="w-5 h-5 md:w-6 md:h-6 group-hover:rotate-90 transition-transform duration-300" />
-                            Add Expense
+                            <span className="truncate">Add Expense</span>
                         </Button>
                     </AddExpenseModal>
 
                     <Button
                         onClick={() => setIsSelectionOpen(true)}
-                        className="bg-[#32dd9e] hover:bg-[#32dd9e]/90 text-white font-black uppercase italic px-6 md:px-10 h-12 md:h-16 rounded-[1.5rem] shadow-[0_4px_0_#1d8a62] md:shadow-[0_8px_0_#1d8a62] active:shadow-none active:translate-y-[4px] md:active:translate-y-[8px] transition-all border border-black/10 flex items-center gap-2 md:gap-4 text-sm md:text-xl w-full md:w-auto">
+                        className="flex-1 md:flex-none bg-[#32dd9e] hover:bg-[#32dd9e]/90 text-white font-black uppercase italic px-4 md:px-10 h-12 md:h-16 rounded-[1.5rem] shadow-[0_4px_0_#1d8a62] md:shadow-[0_8px_0_#1d8a62] active:shadow-none active:translate-y-[4px] md:active:translate-y-[8px] transition-all border border-black/10 flex items-center justify-center gap-2 md:gap-4 text-xs md:text-xl">
                         <UserCheck className="w-5 h-5 md:w-6 md:h-6" />
                         Settle
                     </Button>
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button className="bg-gray-100 hover:bg-gray-200 text-gray-400 hover:text-gray-600 border border-gray-200 rounded-2xl w-16 h-16 transition-all">
-                                <MoreVertical className="w-8 h-8" />
+                            <Button className="shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-400 hover:text-gray-600 border border-gray-200 rounded-2xl w-12 h-12 md:w-16 md:h-16 transition-all flex items-center justify-center">
+                                <MoreVertical className="w-5 h-5 md:w-8 md:h-8" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-[180px] bg-white border-gray-100 shadow-xl rounded-xl p-2">
@@ -442,10 +444,10 @@ export function GroupView({ userName }: { userName: string }) {
 
             {/* 3. Footer Stats (Mini Card) */}
             {expenses.length > 0 && (
-                <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-bottom-10 fade-in duration-700">
-                    <LiquidGlassCard draggable={false} className="bg-white/90 rounded-3xl p-6 flex flex-col justify-center gap-1">
+                <div className="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 animate-in slide-in-from-bottom-10 fade-in duration-700">
+                    <LiquidGlassCard draggable={false} className="bg-white/90 rounded-3xl p-4 md:p-6 flex flex-col justify-center gap-1">
                         <span className="text-[10px] font-black uppercase tracking-widest text-gray-700 relative z-30">Total Group Spending</span>
-                        <span className="text-4xl font-black text-black italic relative z-30">₹{totalSpending.toLocaleString()}</span>
+                        <span className="text-3xl md:text-4xl font-black text-black italic relative z-30">₹{totalSpending.toLocaleString()}</span>
 
                         {/* Settlements List */}
                         {debts.length > 0 && (
@@ -462,7 +464,7 @@ export function GroupView({ userName }: { userName: string }) {
                                                     {debt.from.charAt(0)}
                                                 </div>
                                                 <span className="text-[10px] text-gray-600 font-medium">
-                                                    <span className="font-bold text-black">{debt.from}</span> has to pay <span className="font-bold text-black">{debt.to}</span>
+                                                    <span className="font-bold text-black">{debt.from}</span> pay <span className="font-bold text-black">{debt.to}</span>
                                                 </span>
                                             </div>
                                             <span className="text-xs font-black text-[#32dd9e]">₹{debt.amount.toLocaleString()}</span>
@@ -476,7 +478,7 @@ export function GroupView({ userName }: { userName: string }) {
                     <GroupStatsChart data={chartData} totalSpending={totalSpending} />
 
                     <LiquidGlassCard draggable={false} className={cn(
-                        "rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden bg-white/90",
+                        "rounded-3xl p-4 md:p-6 flex flex-col justify-between relative overflow-hidden bg-white/90",
                         myNetBalance >= 0 ? "border-[#32dd9e]/30" : "border-[#ff6d2f]/30"
                     )}>
                         <div className="absolute top-0 right-0 p-4 opacity-10 z-0">
@@ -535,10 +537,34 @@ export function GroupView({ userName }: { userName: string }) {
 
 
 
-            {/* 4. Bar Chart Section (Full Width) */}
+            {/* 4. Bar Chart Section */}
             {expenses.length > 0 && (
-                <div className="mb-10">
+                <div className="mb-10 space-y-8">
                     <GroupSpendingBarChart data={chartData} totalSpending={totalSpending} />
+
+                    {/* Suggested Settlements - NEW FEATURE asked by user (Smart Debt) */}
+                    <div className="bg-white rounded-3xl p-6 border border-gray-100">
+                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4 flex items-center gap-2">
+                            <LayoutList className="w-3 h-3" /> Smart Settlement Plan
+                        </div>
+                        <div className="space-y-3">
+                            {(() => {
+                                const debts = calculateSmartDebts(expenses, userName);
+                                if (debts.length === 0) return <div className="text-xs text-gray-400 italic">All debts are settled!</div>;
+
+                                return debts.map((debt, i) => (
+                                    <div key={i} className="flex items-center justify-between text-xs p-3 bg-gray-50 rounded-xl border border-gray-100">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-bold text-gray-700">{debt.from === userName ? "You" : debt.from}</span>
+                                            <span className="text-[10px] text-gray-400 uppercase tracking-wider">pays</span>
+                                            <span className="font-bold text-gray-700">{debt.to === userName ? "You" : debt.to}</span>
+                                        </div>
+                                        <span className="font-black text-black">₹{debt.amount}</span>
+                                    </div>
+                                ));
+                            })()}
+                        </div>
+                    </div>
                 </div>
             )}
 
