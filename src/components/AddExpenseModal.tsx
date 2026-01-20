@@ -96,6 +96,8 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
     const [isImageUploading, setIsImageUploading] = useState(false)
     const [manualEmails, setManualEmails] = useState<Record<string, string>>({})
     const [everyonePaidOwn, setEveryonePaidOwn] = useState(false)
+    const [manualName, setManualName] = useState("")
+    const [manualEmail, setManualEmail] = useState("")
     const { addExpense, groups, friends } = useExpenses()
 
     // Find group if groupId is provided
@@ -166,11 +168,35 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
         }
     }, [initialData, mode, form])
 
+    const handleAddManualParticipant = () => {
+        const name = manualName.trim();
+        const email = manualEmail.trim();
+
+        if (name) {
+            if (!participants.includes(name)) {
+                toggleParticipant(name);
+                if (email) {
+                    setManualEmails(prev => ({ ...prev, [name]: email }));
+                }
+                setManualName("");
+                setManualEmail("");
+                toast.success(`Added ${name}`);
+            } else {
+                toast.error(`${name} is already added`);
+            }
+        } else {
+            toast.error("Please enter a name");
+        }
+    }
+
     // Reset participants when groupId changes or modal opens
     useEffect(() => {
         if (isOpen) {
             setBillImage(null);
             setEveryonePaidOwn(false);
+            setManualEmails({});
+            setManualName("");
+            setManualEmail("");
             if (groupId && selectedGroup) {
                 form.setValue("participants", groupMemberNames)
                 form.setValue("groupId", groupId)
@@ -247,6 +273,22 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
                 }
             }
 
+            // Auto-add pending manual participant if user forgot to click add
+            let currentManualEmails = { ...manualEmails };
+            if (manualName.trim()) {
+                const name = manualName.trim();
+                const email = manualEmail.trim();
+
+                // Only add if not already in the list
+                if (!finalParticipants.includes(name)) {
+                    finalParticipants.push(name);
+                    if (email) {
+                        currentManualEmails[name] = email;
+                    }
+                    toast.info(`Included ${name} in the expense`);
+                }
+            }
+
             // Gather Emails for Sync & Notifications
             const pEmails: string[] = [];
             finalParticipants.forEach(p => {
@@ -266,8 +308,8 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
                         return;
                     }
                 }
-                if (manualEmails[p]) {
-                    pEmails.push(manualEmails[p]);
+                if (currentManualEmails[p]) {
+                    pEmails.push(currentManualEmails[p]);
                 }
             });
 
@@ -550,6 +592,9 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
                                         </button>
                                     )}
 
+                                    {/* Display added participants as chips */}
+
+
                                     <div className="flex flex-wrap gap-2 items-center">
                                         {/* Show group members as toggleable buttons */}
                                         {groupId ? (
@@ -580,13 +625,14 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
                                                             <div className="flex-1 space-y-1">
                                                                 <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider pl-1">Name</label>
                                                                 <Input
-                                                                    id="manual-name"
+                                                                    value={manualName}
+                                                                    onChange={(e) => setManualName(e.target.value)}
                                                                     placeholder="e.g. Joe Root"
                                                                     className="h-10 bg-gray-50 border-gray-100 rounded-lg text-xs"
                                                                     onKeyDown={(e) => {
                                                                         if (e.key === 'Enter') {
                                                                             e.preventDefault();
-                                                                            document.getElementById('manual-add-btn')?.click();
+                                                                            handleAddManualParticipant();
                                                                         }
                                                                     }}
                                                                 />
@@ -594,13 +640,14 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
                                                             <div className="flex-1 space-y-1">
                                                                 <label className="text-[9px] font-bold text-gray-400 uppercase tracking-wider pl-1">Email <span className="text-gray-300 font-normal">(Optional)</span></label>
                                                                 <Input
-                                                                    id="manual-email"
+                                                                    value={manualEmail}
+                                                                    onChange={(e) => setManualEmail(e.target.value)}
                                                                     placeholder="joe.root@gmail.com"
                                                                     className="h-10 bg-gray-50 border-gray-100 rounded-lg text-xs"
                                                                     onKeyDown={(e) => {
                                                                         if (e.key === 'Enter') {
                                                                             e.preventDefault();
-                                                                            document.getElementById('manual-add-btn')?.click();
+                                                                            handleAddManualParticipant();
                                                                         }
                                                                     }}
                                                                 />
@@ -608,24 +655,7 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
                                                             <Button
                                                                 type="button"
                                                                 id="manual-add-btn"
-                                                                onClick={() => {
-                                                                    const nameInput = document.getElementById('manual-name') as HTMLInputElement;
-                                                                    const emailInput = document.getElementById('manual-email') as HTMLInputElement;
-                                                                    const name = nameInput.value.trim();
-                                                                    const email = emailInput.value.trim();
-
-                                                                    if (name && !participants.includes(name)) {
-                                                                        toggleParticipant(name);
-                                                                        if (email) {
-                                                                            setManualEmails(prev => ({ ...prev, [name]: email }));
-                                                                        }
-                                                                        nameInput.value = '';
-                                                                        emailInput.value = '';
-                                                                        nameInput.focus();
-                                                                    } else if (!name) {
-                                                                        toast.error("Please enter a name");
-                                                                    }
-                                                                }}
+                                                                onClick={handleAddManualParticipant}
                                                                 className="h-10 w-10 bg-black hover:bg-[#32dd9e] text-white rounded-lg p-0 flex items-center justify-center shrink-0"
                                                             >
                                                                 <Plus className="w-4 h-4" />
@@ -645,6 +675,7 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
                                                                 className="flex items-center gap-1.5 bg-black text-white px-3 py-1.5 rounded-lg text-[10px] font-semibold group hover:bg-red-500 transition-all"
                                                             >
                                                                 <span>{name}</span>
+                                                                {manualEmails[name] && <span className="text-[8px] opacity-70 ml-1">(@)</span>}
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => toggleParticipant(name)}
