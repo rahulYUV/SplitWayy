@@ -1,16 +1,15 @@
 <div align="center">
 
-
   # SplitWayy
 
   Less stress when sharing expenses with anyone, anywhere.
 </div>
-  <img src="src/assets/images/1rpic.png" alt="SplitWayy Hero" width="80%" />
+  <img src="src/assets/images/1rpic.png" alt="SplitWayy Hero" width="100%" />
   
 
 ## The Mission
 
-SplitWayy is a premium expense-sharing application designed for housemates, travelers, and partners who value precision, visual clarity, and a seamless user experience. It transforms the mundane task of tracking debts into a visually engaging and effortless flow.
+SplitWayy is a premium expense-sharing application designed for housemates, travelers, and partners who value precision, visual clarity, and a seamless user experience. It transforms the mundane task of tracking debts into a visually engaging and effortless flow, preserving relationships through **transparency** and **trust**.
 
 ## Technology Stack
 
@@ -20,6 +19,7 @@ SplitWayy is a premium expense-sharing application designed for housemates, trav
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-Latest-38B2AC.svg)](https://tailwindcss.com/)
 [![shadcn/ui](https://img.shields.io/badge/shadcn/ui-Latest-000000.svg)](https://ui.shadcn.com/)
 [![Firebase](https://img.shields.io/badge/Firebase-Verified-FFCA28.svg)](https://firebase.google.com/)
+[![EmailJS](https://img.shields.io/badge/EmailJS-Notifications-ffa726.svg)](https://www.emailjs.com/)
 [![Framer Motion](https://img.shields.io/badge/Framer_Motion-Latest-FF0055.svg)](https://www.framer.com/motion/)
 [![Recharts](https://img.shields.io/badge/Recharts-Latest-22c55e.svg)](https://recharts.org/)
 [![Lucide](https://img.shields.io/badge/Lucide-Latest-F7DF1E.svg)](https://lucide.dev/)
@@ -30,22 +30,40 @@ SplitWayy is a premium expense-sharing application designed for housemates, trav
 
 ## Core Features
 
+### Immutable Audit Trail (Trust Engine)
+Unlike other apps where history vanishes with deletion, SplitWayy implements a rigid **Immutable History** system.
+- **Permanent Logs**: Even if a group or expense is deleted, the activity log persists securely in Firestore.
+- **Security Rules**: Custom database rules prevent any user (even creators) from tampering with historical data.
+
+### Verified QR Settlements
+Bridging the gap between tracking and paying.
+- **Dynamic QR Uploads**: Users can upload their personal UPI QR codes instantly in 'Receive' mode.
+- **Smart Image Compression**: Built-in **WebP compression algorithm** resizes and optimizes QR images client-side for lightning-fast uploads.
+- **Visual Proof**: Friends see the actual payment code, removing the need for manual text exchanges.
+
 ### Visualized Financial Insights
 Get a bird's-eye view of your spending habits with interactive charts. Track your group totals versus your personal share, and watch your balance trends evolve over time with high-fidelity visualization components.
 
 ### Effortless Bill Splitting
-Whether it is rent with housemates, a dinner bill with a partner, or travel expenses on a group trip, SplitWayy handles equal and unequal splits with calculated precision.
+Whether it is rent with housemates, a dinner bill with a partner, or travel expenses on a group trip, SplitWayy handles splits with calculated precision.
 
-- **Dynamic Groups**: Organize social circles and trips with a single click.
-- **Simplify Debts**: Innovative algorithm reduces the total number of transactions needed to settle up.
-- **Cloud Sync**: Real-time updates across iPhone, Android, and web platforms.
+- **Split Types**: Supports **Equal**, **Percentage**, and **Unequal** (Exact Amount) splits.
+- **Real-Time Validation**: Smart forms ensure all math adds up to 100% instantly.
+- **Real-Time Sync**: Powered by Google Firestore to sync data across all devices in <100ms.
+- **Notifications**: Automated EmailJS alerts keep everyone in the loop.
+
+## Technical Highlights (Under the Hood)
+
+- **Client-Side Optimization**: Custom utility functions compress images to modest WebP formats, saving ~80% bandwidth.
+- **Role-Based Visibility**: Activity logs are intelligently filtered; users only see history relevant to them, ensuring privacy.
+- **Component Architecture**: Built using **shadcn/ui** primitives for accessible, robust, and keyboard-navigable interfaces.
 
 ## Design 
 
 SplitWayy is built on the principles of high-contrast typography, premium glassmorphism, and smooth micro-animations. Every interaction is designed to feel alive, from the dynamic hero sequence to the interactive settlement sliders.
 
 - **Aesthetic Excellence**: A curated color palette that guides the eye towards important financial actions.
-- **Accessibility**: Built with semantic HTML and responsive layouts for use on any device.
+- **Mobile First**: Fully responsive layouts optimized for the device you actually use to split bills—your phone.
 - **Performance**: Optimized rendering using modern React patterns and Vite for lightning-fast load times.
 
 ## Getting Started
@@ -81,4 +99,3 @@ Distributed under the MIT License. See `LICENSE` for more information.
 <div align="center">
   <img src="src/assets/images/fpic.png" alt="SplitWayy Footer" width="100%" />
 </div>
-  
