@@ -14,7 +14,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChevronDown, Menu } from "lucide-react";
 import { Link } from "react-router-dom";
-import { GithubLiquidButton, HomeLiquidButton, LoginLiquidButton } from "@/components/ui/GithubLiquidButton";
+import { GithubLiquidButton, LoginLiquidButton } from "@/components/ui/GithubLiquidButton";
 
 
 interface NavbarProps {
@@ -88,10 +88,6 @@ export function Navbar({ className, onSignUpClick, onLoginClick, user, profile, 
 
                     {user ? (
                         <div className="flex items-center gap-6">
-                            <Link to="/">
-                                <HomeLiquidButton className="hidden sm:flex" />
-                            </Link>
-
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <button className="flex items-center gap-2 pl-1 pr-3 py-1 bg-[#32dd9e] hover:bg-[#2bc58d] rounded-full transition-all shadow-lg hover:shadow-[#32dd9e]/20 hover:scale-105 active:scale-95 group outline-none">
@@ -113,12 +109,16 @@ export function Navbar({ className, onSignUpClick, onLoginClick, user, profile, 
                                             Your account
                                         </Link>
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem className="cursor-pointer font-medium text-gray-700 focus:bg-[#32dd9e]/10 focus:text-[#32dd9e] rounded-lg h-10 px-3">
-                                        Create a group
+                                    <DropdownMenuItem asChild>
+                                        <Link to="/?create_group=true" className="cursor-pointer font-medium text-gray-700 focus:bg-[#32dd9e]/10 focus:text-[#32dd9e] rounded-lg h-10 px-3 w-full flex items-center">
+                                            Create a group
+                                        </Link>
                                     </DropdownMenuItem>
 
-                                    <DropdownMenuItem className="cursor-pointer font-medium text-gray-700 focus:bg-[#32dd9e]/10 focus:text-[#32dd9e] rounded-lg h-10 px-3">
-                                        Contact support
+                                    <DropdownMenuItem asChild>
+                                        <Link to="/support" className="cursor-pointer font-medium text-gray-700 focus:bg-[#32dd9e]/10 focus:text-[#32dd9e] rounded-lg h-10 px-3 w-full flex items-center">
+                                            Contact support
+                                        </Link>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator className="bg-gray-200/50 my-1" />
                                     <DropdownMenuItem

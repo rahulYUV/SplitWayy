@@ -21,7 +21,7 @@ interface DashboardHomeProps {
 export function DashboardHome({ userName }: DashboardHomeProps) {
     const [viewMode, setViewMode] = useState<'list' | 'chart'>('list');
     const [isSelectionOpen, setIsSelectionOpen] = useState(false);
-    const [settleMember, setSettleMember] = useState<{ name: string, balance: number } | null>(null);
+    const [settleMember, setSettleMember] = useState<{ name: string; email?: string; balance: number } | null>(null);
     const { expenses, friends, getFriendBalance } = useExpenses();
 
     // Calculate dynamic data
@@ -262,7 +262,10 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
                                         const isOwe = oweData.some(o => o.name === person.name);
                                         const realBalance = isOwe ? -person.amount : person.amount;
 
-                                        setSettleMember({ name: person.name, balance: realBalance });
+                                        // Find friend email from friends context
+                                        const friendData = friends.find(f => f.displayName === person.name);
+
+                                        setSettleMember({ name: person.name, email: friendData?.email, balance: realBalance });
                                         setIsSelectionOpen(false);
                                     }}
                                     size="sm"
@@ -286,6 +289,7 @@ export function DashboardHome({ userName }: DashboardHomeProps) {
                     isOpen={!!settleMember}
                     onClose={() => setSettleMember(null)}
                     friendName={settleMember.name}
+                    friendEmail={settleMember.email}
                     balance={settleMember.balance}
                     userName={userName}
                 />

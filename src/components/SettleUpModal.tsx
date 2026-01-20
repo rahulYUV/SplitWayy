@@ -9,11 +9,13 @@ import { cn } from "@/lib/utils";
 import { useExpenses } from "@/context/ExpenseContext";
 import { toast } from "sonner";
 import CurrencyRupeeIcon from "./ui/icons/currency-rupee-icon";
+import { sendSettlementNotification } from "@/services/emailService";
 
 interface SettleUpModalProps {
     isOpen: boolean;
     onClose: () => void;
     friendName: string; // The person we are settling with
+    friendEmail?: string; // Friend's email for notifications
     balance: number; // Positive: They owe me. Negative: I owe them.
     userName: string; // Current user
     groupId?: string; // Optional: Link settlement to a group
@@ -25,7 +27,7 @@ declare global {
     }
 }
 
-export function SettleUpModal({ isOpen, onClose, friendName, balance, userName, groupId }: SettleUpModalProps) {
+export function SettleUpModal({ isOpen, onClose, friendName, friendEmail, balance, userName, groupId }: SettleUpModalProps) {
     // Determine mode based on balance
     // If balance > 0 (They owe me), mode is 'take' (receiving money)
     // If balance < 0 (I owe them), mode is 'give' (paying money)
@@ -38,10 +40,23 @@ export function SettleUpModal({ isOpen, onClose, friendName, balance, userName, 
     const [date, setDate] = useState(new Date());
     const [notes, setNotes] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [qrImage, setQrImage] = useState<string | null>(null);
 
     const { addExpense } = useExpenses();
 
-    const handleSettle = async (method: "cash" | "online") => {
+    const handleQrUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (!file.type.startsWith("image/")) {
+                toast.error("Please upload a valid image file");
+                return;
+            }
+            const url = URL.createObjectURL(file);
+            setQrImage(url);
+        }
+    };
+
+    const handleSettle = async () => {
         const numAmount = parseFloat(amount);
         if (isNaN(numAmount) || numAmount <= 0) {
             toast.error("Please enter a valid amount");
@@ -51,51 +66,7 @@ export function SettleUpModal({ isOpen, onClose, friendName, balance, userName, 
         setIsLoading(true);
 
         try {
-            if (method === "online") {
-                // Razorpay Logic
-                // This is relevant only if I am PAYING (Give mode)
-                // Or if I requested money? Usually 'Pay' button is for Paying.
-                if (mode !== "give") {
-                    toast.error("Online payment is usually for paying others.");
-                    setIsLoading(false);
-                    return;
-                }
-
-                // MOCK RAZORPAY OPTIONS
-                const options = {
-                    key: "rzp_test_placeholder", // Replace with real key later
-                    amount: numAmount * 100, // Amount in paise
-                    currency: "INR",
-                    name: "SplitWayy",
-                    description: `Settle up with ${friendName}`,
-                    image: "https://your-logo-url.com/logo.png",
-                    handler: async function (_response: any) {
-                        // Payment Success
-                        await recordPayment(numAmount, "online");
-                    },
-                    prefill: {
-                        name: userName,
-                        email: "user@example.com",
-                        contact: "9999999999"
-                    },
-                    theme: {
-                        color: "#32dd9e"
-                    }
-                };
-
-                const rzp1 = new window.Razorpay(options);
-                rzp1.open();
-
-                // We stop loading here because the modal takes over, 
-                // but we might want to keep it loading until verified. 
-                // For now, let's reset loading as the user interacts with Razorpay.
-                setIsLoading(false);
-                return;
-            }
-
-            // Cash Payment
             await recordPayment(numAmount, "cash");
-
         } catch (error) {
             console.error(error);
             toast.error("Something went wrong");
@@ -103,20 +74,8 @@ export function SettleUpModal({ isOpen, onClose, friendName, balance, userName, 
         }
     };
 
-    const recordPayment = async (val: number, _type: "cash" | "online") => {
-        // Log payment type if needed for analytics
-        // console.log(`Recording ${type} payment`);
-
+    const recordPayment = async (val: number, paymentType: "cash" | "online") => {
         try {
-            // Logic Recap:
-            // "Give" (I pay X): Payer=You, Split=[You:0, Friend:100%]
-            // "Take" (X pays Me): Payer=Friend, Split=[You:100%, Friend:0%] (I receive it)
-
-            // Wait, standard Expense Logic:
-            // "I Paid 100". Shared with [Me, Friend].
-            // If I want to transfer 100 to Friend.
-            // I paid 100. Friend consumed 100.
-
             let paidBy = "";
             let splitDetails = {};
 
@@ -150,7 +109,26 @@ export function SettleUpModal({ isOpen, onClose, friendName, balance, userName, 
             });
 
             toast.success(`Settled ₹${val} with ${friendName}`);
+
+            // Send email notification to the friend
+            if (friendEmail) {
+                // Send notification asynchronously, don't wait for it
+                sendSettlementNotification(
+                    friendEmail,
+                    friendName,
+                    userName || "You",
+                    val,
+                    paymentType,
+                    date,
+                    notes
+                ).catch(error => {
+                    console.error('Failed to send settlement email:', error);
+                    // Don't show error toast to avoid disrupting UX
+                });
+            }
+
             onClose();
+            setQrImage(null); // Reset QR
         } catch (e) {
             console.error(e);
             toast.error("Failed to record settlement");
@@ -158,12 +136,6 @@ export function SettleUpModal({ isOpen, onClose, friendName, balance, userName, 
             setIsLoading(false);
         }
     };
-
-    // QR Code URL (UPI Intent)
-    // upi://pay?pa=address&pn=name&am=amount
-    // Using a placeholder address for now
-    const upiLink = `upi://pay?pa=demouser@upi&pn=${userName}&am=${amount}&cu=INR`;
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiLink)}`;
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
@@ -219,13 +191,50 @@ export function SettleUpModal({ isOpen, onClose, friendName, balance, userName, 
                     </div>
 
                     {mode === "take" && (
-                        <div className="bg-gray-50 rounded-2xl p-6 flex flex-col items-center gap-4 text-center border border-dashed border-gray-200">
-                            <span className="text-xs text-gray-400 font-bold uppercase tracking-widest">Show this QR to {friendName}</span>
-                            <div className="bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
-                                <img src={qrCodeUrl} alt="QR Code" className="w-32 h-32 opacity-90 mix-blend-multiply" />
-                            </div>
-                            <p className="text-[10px] text-gray-400 max-w-[200px]">
-                                Scan to pay via UPI (Note: This uses a demo VPA)
+                        <div className="bg-gray-50 rounded-2xl p-6 flex flex-col items-center gap-4 text-center border border-dashed border-gray-200 relative overflow-hidden group">
+                            <span className="text-xs text-gray-400 font-bold uppercase tracking-widest relative z-10">Show Your QR to {friendName}</span>
+
+                            {qrImage ? (
+                                <div className="relative">
+                                    <div className="bg-white p-2 rounded-xl border border-gray-100 shadow-sm relative z-10">
+                                        <img src={qrImage} alt="QR Code" className="w-40 h-40 object-contain" />
+                                    </div>
+                                    <div className="absolute -bottom-2 -right-2 z-20">
+                                        <label htmlFor="qr-upload-change" className="bg-black text-white p-2 rounded-full cursor-pointer hover:bg-gray-800 transition-colors shadow-lg flex items-center justify-center">
+                                            <CreditCard size={14} />
+                                        </label>
+                                        <input
+                                            id="qr-upload-change"
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={handleQrUpload}
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="w-full flex justify-center">
+                                    <label
+                                        htmlFor="qr-upload"
+                                        className="flex flex-col items-center justify-center w-40 h-40 rounded-xl bg-white border-2 border-dashed border-gray-200 cursor-pointer hover:border-[#32dd9e] hover:bg-[#32dd9e]/5 transition-all gap-2 group/upload"
+                                    >
+                                        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover/upload:bg-[#32dd9e]/10 group-hover/upload:text-[#32dd9e] transition-colors text-gray-400">
+                                            <CreditCard size={20} />
+                                        </div>
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 group-hover/upload:text-[#32dd9e]">Upload QR</span>
+                                    </label>
+                                    <input
+                                        id="qr-upload"
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={handleQrUpload}
+                                    />
+                                </div>
+                            )}
+
+                            <p className="text-[10px] text-gray-400 max-w-[200px] relative z-10">
+                                {qrImage ? "Ask friend to scan this QR" : "Upload your Payment QR Code (UPI) to receive money"}
                             </p>
                         </div>
                     )}
@@ -250,24 +259,13 @@ export function SettleUpModal({ isOpen, onClose, friendName, balance, userName, 
                     </div>
 
                     <div className="flex flex-col gap-3 mt-4">
-                        {mode === "give" && (
-                            <Button
-                                onClick={() => handleSettle("online")}
-                                disabled={isLoading}
-                                className="w-full bg-[#3395ff] hover:bg-[#2b85e6] text-white font-bold h-14 rounded-2xl shadow-[0_4px_0_#1f6bc4] active:shadow-none active:translate-y-[4px] transition-all flex items-center justify-center gap-3 uppercase tracking-wider text-sm"
-                            >
-                                <CreditCard size={18} />
-                                Pay Online
-                            </Button>
-                        )}
-
                         <Button
-                            onClick={() => handleSettle("cash")}
+                            onClick={handleSettle}
                             disabled={isLoading}
-                            className={`w-full text-white font-bold h-14 rounded-2xl shadow-[0_4px_0_rgba(0,0,0,0.2)] active:shadow-none active:translate-y-[4px] transition-all flex items-center justify-center gap-3 uppercase tracking-wider text-sm ${mode === "give" ? "bg-[#32dd9e] hover:bg-[#2bc48a] shadow-[0_4px_0_#1a8c63]" : "bg-[#32dd9e] hover:bg-[#2bc48a] shadow-[0_4px_0_#1a8c63]"}`}
+                            className={`w-full text-white font-bold h-14 rounded-2xl shadow-[0_4px_0_rgba(0,0,0,0.2)] active:shadow-none active:translate-y-[4px] transition-all flex items-center justify-center gap-3 uppercase tracking-wider text-sm bg-[#32dd9e] hover:bg-[#2bc48a] shadow-[0_4px_0_#1a8c63]`}
                         >
                             <Banknote size={18} />
-                            Record Cash Payment
+                            Record Payment
                         </Button>
                     </div>
                 </div>

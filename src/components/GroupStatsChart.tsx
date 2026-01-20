@@ -94,7 +94,7 @@ export function GroupStatsChart({ data, totalSpending, className }: GroupStatsCh
                         {/* Center Text */}
                         <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" style={{ pointerEvents: 'none' }}>
                             <tspan x="50%" dy="-0.5em" fontSize="18" fontWeight="900" fill="#000">
-                                ₹{totalSpending > 1000 ? (totalSpending / 1000).toFixed(1) + 'k' : totalSpending}
+                                ₹{totalSpending > 1000 ? (totalSpending / 1000).toFixed(1) + 'k' : totalSpending.toFixed(2)}
                             </tspan>
                             <tspan x="50%" dy="1.4em" fontSize="8" fill="#9ca3af" fontWeight="700" letterSpacing="0.1em">
                                 TOTAL
@@ -116,7 +116,7 @@ export function GroupStatsChart({ data, totalSpending, className }: GroupStatsCh
                                 <span className="text-[10px] text-black font-black mr-1">
                                     {((item.value / totalSpending) * 100).toFixed(0)}%
                                 </span>
-                                <span className="font-black text-black italic">₹{item.value.toLocaleString()}</span>
+                                <span className="font-black text-black italic">₹{item.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                         </div>
                     ))}

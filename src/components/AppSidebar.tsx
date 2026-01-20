@@ -144,12 +144,12 @@ export function AppSidebar({ forceExpanded, user, ...props }: AppSidebarProps) {
                 {!isCollapsed ? (
                     <AddExpenseModal userName={userName}>
                         <button className="w-full mb-8 group outline-none">
-                            <div className="relative flex items-center justify-between w-full p-1.5 bg-gray-900 rounded-2xl transition-all duration-300 hover:shadow-lg hover:shadow-gray-900/20 hover:-translate-y-0.5 active:translate-y-0">
+                            <div className="relative flex items-center justify-between w-full p-1.5 bg-white/60 backdrop-blur-md border border-gray-200 rounded-2xl transition-all duration-300 hover:shadow-lg hover:shadow-gray-200/50 hover:-translate-y-0.5 active:translate-y-0">
                                 <div className="flex flex-col items-start pl-3.5 py-2.5">
-                                    <span className="text-[10px] font-bold tracking-widest text-gray-400 uppercase mb-0.5 group-hover:text-[#32dd9e] transition-colors">Quick Add</span>
-                                    <span className="text-sm font-bold text-white tracking-wide">Expense</span>
+                                    <span className="text-[10px] font-bold tracking-widest text-gray-400 uppercase mb-0.5 group-hover:text-gray-600 transition-colors">Quick Add</span>
+                                    <span className="text-sm font-black text-gray-900 tracking-wide">Expense</span>
                                 </div>
-                                <div className="flex items-center justify-center w-10 h-10 bg-[#32dd9e] rounded-xl text-gray-900 transition-all duration-300 group-hover:scale-105 group-hover:rotate-90 shadow-lg shadow-[#32dd9e]/20">
+                                <div className="flex items-center justify-center w-10 h-10 bg-white border border-gray-100 rounded-xl text-gray-900 transition-all duration-300 group-hover:scale-105 group-hover:rotate-90 shadow-sm">
                                     <Plus className="w-5 h-5" strokeWidth={3} />
                                 </div>
                             </div>

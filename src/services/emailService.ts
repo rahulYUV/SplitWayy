@@ -79,3 +79,52 @@ export const sendWelcomeEmail = async (toEmail: string, toName: string) => {
         console.error('Failed to send welcome email:', error);
     }
 };
+
+export const sendSettlementNotification = async (
+    toEmail: string,
+    toName: string,
+    fromName: string,
+    amount: number,
+    paymentMethod: 'cash' | 'online',
+    date: Date,
+    notes?: string
+) => {
+    try {
+        const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+        const templateId = import.meta.env.VITE_EMAILJS_SETTLEMENT_TEMPLATE_ID;
+        const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+        if (!serviceId || !templateId || !publicKey) {
+            console.error("EmailJS credentials MISSING for SETTLEMENT EMAIL:", { serviceId, templateId, publicKey });
+            return; // Silent fail to not disrupt settlement flow
+        }
+
+        const templateParams = {
+            to_email: toEmail,
+            to_name: toName || "Friend",
+            from_name: fromName,
+            amount: `₹${amount.toFixed(2)}`,
+            payment_method: paymentMethod === 'cash' ? 'Cash' : 'Online Payment',
+            date: date.toLocaleDateString('en-IN', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            }),
+            notes: notes || 'No notes added',
+        };
+
+        const response = await emailjs.send(serviceId, templateId, templateParams, publicKey);
+
+        if (response.status === 200) {
+            console.log(`Settlement Email sent to ${toEmail}`);
+            toast.success(`Settlement notification sent to ${toName}`);
+        } else {
+            console.error("Settlement Email Failed:", response);
+            toast.error(`Failed to send notification to ${toName}`);
+        }
+
+    } catch (error) {
+        console.error('Failed to send settlement email:', error);
+        toast.error('Failed to send settlement notification');
+    }
+};

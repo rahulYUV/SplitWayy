@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { auth } from "@/lib/firebase";
 import {
     Plus,
     MoreVertical,
@@ -48,7 +49,7 @@ export function GroupView({ userName }: { userName: string }) {
     const { groups, getGroupExpenses, getFriendBalance } = useExpenses();
     const [selectedExpenseId, setSelectedExpenseId] = useState<string | null>(null);
     const [isSelectionOpen, setIsSelectionOpen] = useState(false);
-    const [settleMember, setSettleMember] = useState<{ name: string; balance: number } | null>(null);
+    const [settleMember, setSettleMember] = useState<{ name: string; email?: string; balance: number } | null>(null);
     const [newMemberName, setNewMemberName] = useState("");
     const [newMemberEmail, setNewMemberEmail] = useState("");
     const [isEditOpen, setIsEditOpen] = useState(false);
@@ -64,7 +65,11 @@ export function GroupView({ userName }: { userName: string }) {
     // Normalize expenses for debt calculation to merge "You" and "userName"
     const normalizedExpenses = useMemo(() => {
         return expenses.map(e => {
-            const normalize = (name: string) => (name === "You" || name === userName) ? userName : name;
+            const normalize = (name: string) => {
+                const n = name?.trim();
+                const u = userName?.trim();
+                return (n === "You" || n === u) ? u : n;
+            };
 
             return {
                 ...e,
@@ -123,6 +128,14 @@ export function GroupView({ userName }: { userName: string }) {
                     console.warn("Date parse error", e);
                 }
 
+                // Ensure we have at least the current user's email
+                const currentUserEmail = auth.currentUser?.email;
+                const visibilityList = new Set([
+                    ...(group.memberEmails || []),
+                    currentUserEmail,
+                    // If auth user email is null, try to use a passed prop or storage if defined (omitted here for safety, relying on auth)
+                ].filter((e): e is string => !!e));
+
                 await logActivity({
                     type: "delete_group",
                     description: `Group "${group.name}" was deleted`,
@@ -132,7 +145,9 @@ export function GroupView({ userName }: { userName: string }) {
                         createdAt: createdDate,
                         participants: group.members.map(m => m.name)
                     },
-                    createdBy: userName
+                    createdBy: userName || "Someone",
+                    userId: auth.currentUser?.uid,
+                    visibleToUserEmails: Array.from(visibilityList)
                 });
 
                 // Delete Group
@@ -205,12 +220,23 @@ export function GroupView({ userName }: { userName: string }) {
         };
     }, { paid: 0, share: 0, net: 0 });
 
-    const { paid: myTotalPaid, share: myTotalShare, net: myNetBalance } = overview;
+    const round2 = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
+
+    const myTotalPaid = round2(overview.paid);
+    const myTotalShare = round2(overview.share);
+    const myNetBalance = round2(overview.net);
 
     // Calculate balances for each member relative to "You" (NET for this group)
-    const memberBalances = group.members
-        .filter(m => m.name !== userName && m.name !== "You")
-        .map(member => {
+    // 1. Gather all unique people involved in expenses + group members
+    const allInvolvedPeople = Array.from(new Set([
+        ...group.members.map(m => m.name),
+        ...expenses.flatMap(e => e.participants),
+        ...expenses.flatMap(e => e.paidBy === "multiple" && e.payerDetails ? Object.keys(e.payerDetails) : [e.paidBy])
+    ]));
+
+    const memberBalances = allInvolvedPeople
+        .filter(name => name && name !== userName && name !== "You") // Exclude self
+        .map(name => {
             let bal = 0;
             expenses.forEach(expense => {
                 const payer = expense.paidBy === "You" ? userName : expense.paidBy;
@@ -218,12 +244,12 @@ export function GroupView({ userName }: { userName: string }) {
                 if (expense.paidBy === "You" && !efficientParticipants.includes("You")) efficientParticipants.push("You");
 
                 const amIInvolved = efficientParticipants.includes(userName) || efficientParticipants.includes("You");
-                const isMemberInvolved = efficientParticipants.includes(member.name);
+                const isMemberInvolved = efficientParticipants.includes(name);
 
                 if (!amIInvolved && !isMemberInvolved) return;
 
                 const paidByMe = payer === userName;
-                const paidByMember = payer === member.name;
+                const paidByMember = payer === name;
 
                 if (!paidByMe && !paidByMember) return;
 
@@ -232,7 +258,7 @@ export function GroupView({ userName }: { userName: string }) {
                 if (expense.splitMethod === "equally" && totalPeople > 0) share = expense.amount / totalPeople;
                 else if (expense.splitMethod === "percentage") {
                     if (paidByMe) {
-                        const p = Number(expense.splitDetails?.[member.name] || 0);
+                        const p = Number(expense.splitDetails?.[name] || 0);
                         share = (expense.amount * p) / 100;
                     } else {
                         const p = Number(expense.splitDetails?.[userName] || expense.splitDetails?.["You"] || 0);
@@ -240,7 +266,7 @@ export function GroupView({ userName }: { userName: string }) {
                     }
                 } else {
                     if (paidByMe) {
-                        share = Number(expense.splitDetails?.[member.name] || 0);
+                        share = Number(expense.splitDetails?.[name] || 0);
                     } else {
                         share = Number(expense.splitDetails?.[userName] || expense.splitDetails?.["You"] || 0);
                     }
@@ -249,26 +275,38 @@ export function GroupView({ userName }: { userName: string }) {
                 if (paidByMe && isMemberInvolved) bal += share;
                 if (paidByMember && amIInvolved) bal -= share;
             });
-            return { name: member.name, bal };
+            return { name: name, bal: round2(bal) };
         })
-        .filter(d => Math.abs(d.bal) > 1);
+        .filter(d => Math.abs(d.bal) > 0.01); // Filter out resolved 0.01 differences
 
     // Chart Data Preparation
     const spendingByPayer: Record<string, number> = {};
     expenses.forEach(e => {
+        // Exclude settlements/payments from group spending statistics
+        if (e.category === "Payment" || e.description.toLowerCase() === "settlement") {
+            return;
+        }
+
+        // Prepare canonical names for chart
+        const normalizeForChart = (name: string) => {
+            const n = name?.trim();
+            const u = userName?.trim();
+            return (n === "You" || n === u) ? "You" : n;
+        };
+
         if (e.paidBy === "multiple" && e.payerDetails) {
             Object.entries(e.payerDetails).forEach(([person, amount]) => {
-                const name = (person === "You" || person === userName) ? "You" : person;
+                const name = normalizeForChart(person);
                 const amt = Number(amount) || 0;
                 spendingByPayer[name] = (spendingByPayer[name] || 0) + amt;
             });
         } else {
-            const name = (e.paidBy === "You" || e.paidBy === userName) ? "You" : e.paidBy;
+            const name = normalizeForChart(e.paidBy);
             spendingByPayer[name] = (spendingByPayer[name] || 0) + e.amount;
         }
     });
 
-    const totalSpending = Object.values(spendingByPayer).reduce((a, b) => a + b, 0);
+    const totalSpending = round2(Object.values(spendingByPayer).reduce((a, b) => a + b, 0));
 
     const chartData = Object.entries(spendingByPayer).map(([name, value], index) => {
         const colors = ["#32dd9e", "#ff6d2f", "#3b82f6", "#facc15", "#a855f7", "#ec4899"];
@@ -650,7 +688,7 @@ export function GroupView({ userName }: { userName: string }) {
                                     </div>
                                     <Button
                                         onClick={() => {
-                                            setSettleMember({ name: member.name, balance: bal });
+                                            setSettleMember({ name: member.name, email: member.email, balance: bal });
                                             setIsSelectionOpen(false);
                                         }}
                                         size="sm"
@@ -676,6 +714,7 @@ export function GroupView({ userName }: { userName: string }) {
                         isOpen={!!settleMember}
                         onClose={() => setSettleMember(null)}
                         friendName={settleMember.name}
+                        friendEmail={settleMember.email}
                         balance={settleMember.balance}
                         userName={userName}
                         groupId={group.id}

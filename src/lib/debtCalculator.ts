@@ -6,6 +6,8 @@ export interface Debt {
     amount: number;
 }
 
+const cleanName = (name: string) => name?.trim() || "Unknown";
+
 export function calculateDebts(expenses: Expense[]): Debt[] {
     const balances: Record<string, number> = {};
 
@@ -16,11 +18,12 @@ export function calculateDebts(expenses: Expense[]): Debt[] {
         if (expense.paidBy === 'multiple' && expense.payerDetails) {
             Object.entries(expense.payerDetails).forEach(([name, amount]) => {
                 const val = Number(amount);
-                balances[name] = (balances[name] || 0) + val;
+                const cleaned = cleanName(name);
+                balances[cleaned] = (balances[cleaned] || 0) + val;
                 totalPaid += val;
             });
         } else {
-            const payer = expense.paidBy;
+            const payer = cleanName(expense.paidBy);
             const val = Number(expense.amount);
             balances[payer] = (balances[payer] || 0) + val;
             totalPaid = val;
@@ -39,7 +42,8 @@ export function calculateDebts(expenses: Expense[]): Debt[] {
             // Divide equally among participants
             const splitAmount = expense.amount / count;
             expense.participants.forEach(p => {
-                balances[p] = (balances[p] || 0) - splitAmount;
+                const cleaned = cleanName(p);
+                balances[cleaned] = (balances[cleaned] || 0) - splitAmount;
             });
         } else if (expense.splitMethod === 'percentage') {
             // Calculate based on percentage with proper rounding
@@ -48,7 +52,8 @@ export function calculateDebts(expenses: Expense[]): Debt[] {
                     const percent = Number(percentStr);
                     // Round to 2 decimals to prevent floating point errors
                     const amountKey = Math.round((expense.amount * percent)) / 100;
-                    balances[name] = (balances[name] || 0) - amountKey;
+                    const cleaned = cleanName(name);
+                    balances[cleaned] = (balances[cleaned] || 0) - amountKey;
                 });
             }
         } else {
@@ -56,14 +61,16 @@ export function calculateDebts(expenses: Expense[]): Debt[] {
             if (expense.splitDetails) {
                 Object.entries(expense.splitDetails).forEach(([name, amountStr]) => {
                     const val = Number(amountStr);
-                    balances[name] = (balances[name] || 0) - val;
+                    const cleaned = cleanName(name);
+                    balances[cleaned] = (balances[cleaned] || 0) - val;
                 });
             } else if (expense.participants.length > 0) {
                 // Fallback if splitDetails missing but 'exact' -> assume equal? Or skip.
                 // Better to assume equal for legacy data robustness
                 const splitAmount = expense.amount / expense.participants.length;
                 expense.participants.forEach(p => {
-                    balances[p] = (balances[p] || 0) - splitAmount;
+                    const cleaned = cleanName(p);
+                    balances[cleaned] = (balances[cleaned] || 0) - splitAmount;
                 });
             }
         }
@@ -128,10 +135,12 @@ export function calculateSmartDebts(expenses: Expense[], currentUserName?: strin
     const balances: Record<string, number> = {};
 
     const normalize = (name: string) => {
-        if (!currentUserName) return name;
-        if (name === "You") return currentUserName;
-        if (name === currentUserName) return currentUserName;
-        return name;
+        let n = name;
+        if (currentUserName) {
+            if (n === "You") n = currentUserName;
+            if (n === currentUserName) n = currentUserName;
+        }
+        return n?.trim() || "Unknown";
     }
 
     // 1. Calculate Balances

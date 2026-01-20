@@ -138,7 +138,7 @@ export function FriendView({ friendName, userName }: FriendViewProps) {
                 },
                 createdBy: userName,
                 userId: auth.currentUser.uid,
-                visibleToUserEmails: [auth.currentUser.email!]
+                visibleToUserEmails: auth.currentUser?.email ? [auth.currentUser.email] : []
             });
         }
 
@@ -317,6 +317,7 @@ export function FriendView({ friendName, userName }: FriendViewProps) {
                 isOpen={isSettleUpOpen}
                 onClose={() => setIsSettleUpOpen(false)}
                 friendName={displayName}
+                friendEmail={friendFromContext?.email}
                 balance={balance}
                 userName={userName}
             />

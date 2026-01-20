@@ -272,9 +272,11 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
             });
 
             // Sanitize Data: Replace "You" with actual userName
-            const effectiveUserName = userName || "You";
+            // This is CRITICAL. "You" must be resolved to the explicit userName if available, otherwise it causes ambiguity in shared groups.
+            // If userName is not provided (e.g. some loose calling code?), we try to fallback to "You" but it is risky.
+            const effectiveUserName = userName || auth.currentUser?.displayName || "You";
 
-            const sanitizedParticipants = finalParticipants.map(p => p === "You" ? effectiveUserName : p);
+            const sanitizedParticipants = finalParticipants.map(p => p.trim() === "You" ? effectiveUserName : p.trim());
 
             // Allow user to be added if implicitly involved but not in list (for split safety)
             // But usually we respect the form.
@@ -283,7 +285,7 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
                 if (!details) return {};
                 const newDetails: Record<string, string> = {};
                 Object.entries(details).forEach(([key, val]) => {
-                    const newKey = key === "You" ? effectiveUserName : key;
+                    const newKey = key.trim() === "You" ? effectiveUserName : key.trim();
                     newDetails[newKey] = val;
                 });
                 return newDetails;
@@ -294,7 +296,7 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
                 amount: Number(values.amount),
                 participants: sanitizedParticipants,
                 participantEmails: pEmails,
-                paidBy: values.paidBy === "You" ? effectiveUserName : values.paidBy,
+                paidBy: (values.paidBy === "You" || values.paidBy.trim() === "You") ? effectiveUserName : values.paidBy,
                 splitMethod: values.splitMethod,
                 splitDetails: sanitizeDetails(values.splitDetails),
                 payerDetails: sanitizeDetails(values.payerDetails),
@@ -353,7 +355,7 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
                         createdBy: userName || "You",
                         userId: auth.currentUser?.uid,
                         expenseId: initialData?.id,
-                        visibleToUserEmails: pEmails
+                        visibleToUserEmails: Array.from(new Set([...pEmails, auth.currentUser?.email || ""].filter(Boolean)))
                     });
                 }
 
@@ -373,7 +375,7 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
                     },
                     createdBy: userName || "You",
                     userId: auth.currentUser?.uid,
-                    visibleToUserEmails: pEmails
+                    visibleToUserEmails: Array.from(new Set([...pEmails, auth.currentUser?.email || ""].filter(Boolean)))
                 });
 
 

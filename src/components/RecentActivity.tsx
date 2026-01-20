@@ -46,7 +46,7 @@ export function RecentActivity({ userName, user }: { userName: string; user: Use
         }));
 
         const activityItems: UnifiedItem[] = activities
-            .filter(a => ['delete_group', 'delete_expense', 'update_expense'].includes(a.type)) // Show delete and update activities
+            // REMOVED FILTER: Now we allow ALL activity types to pass through
             .map(a => ({
                 id: a.id,
                 date: a.createdAt,
@@ -56,17 +56,34 @@ export function RecentActivity({ userName, user }: { userName: string; user: Use
 
         const all = [...expenseItems, ...activityItems].sort((a, b) => b.date.getTime() - a.date.getTime());
 
+        // Track IDs of active expenses to avoid duplicates
+        const activeExpenseIds = new Set(expenses.map(e => e.id));
+
         return all.filter(item => {
             if (item.type === 'expense') {
                 const e = item.data as Expense;
+                // ... (Existing expense filters) ...
                 if (filter === 'all') return true;
                 if (filter === 'groups') return e.groupId !== null && e.groupId !== undefined;
                 if (filter === 'friends') return !e.groupId && e.category !== 'Payment';
                 if (filter === 'payments') return e.category === 'Payment';
             } else {
-                // Activity logic
+                // Activity Logic
+                const act = item.data as Activity;
+
+                // INTELLIGENT DISPLAY LOGIC:
+                // 1. Always show 'delete', 'update', 'settle_up', 'create_group' events.
+                // 2. For 'add_expense':
+                //    - If the expense still exists (isActive), HIDE this log (show the interactive Expense Card instead).
+                //    - If the expense is GONE (deleted), SHOW this log so we have history.
+
+                if (act.type === 'add_expense' && act.expenseId && activeExpenseIds.has(act.expenseId)) {
+                    return false; // Hide log, show real card
+                }
+
                 // Show group activities in 'groups' or 'all'
                 if (filter === 'all' || filter === 'groups') return true;
+                // Show other activities if they match current context (could refine further)
                 return false;
             }
             return true;
@@ -243,7 +260,12 @@ export function RecentActivity({ userName, user }: { userName: string; user: Use
                                                 </span>
                                                 <span className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mt-1">
                                                     {activity.createdBy === userName ? "You" : activity.createdBy}
-                                                    {isDelete ? (activity.type === 'delete_group' ? " deleted this group" : " deleted an expense") : " updated this expense"}
+                                                    {isDelete
+                                                        ? (activity.type === 'delete_group' ? " deleted this group" : " deleted an expense")
+                                                        : (activity.type === 'create_group' ? " created this group" :
+                                                            activity.type === 'add_expense' ? " added this expense" :
+                                                                " updated this expense")
+                                                    }
                                                     • {formatDistanceToNow(activity.createdAt, { addSuffix: true })}
                                                 </span>
                                             </div>
@@ -408,6 +430,57 @@ export function RecentActivity({ userName, user }: { userName: string; user: Use
                                 <div className="flex flex-col gap-1">
                                     <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Updated By</span>
                                     <span className="text-sm font-bold text-gray-900">{selectedActivity.createdBy === userName ? "You" : selectedActivity.createdBy}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {selectedActivity && selectedActivity.type === 'add_expense' && selectedActivity.details && (
+                        <div className="flex flex-col gap-6">
+                            <div className="flex flex-col gap-1">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Expense Description</span>
+                                <span className="text-xl font-bold text-black">{selectedActivity.description.replace('Added expense: ', '')}</span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Amount</span>
+                                    <span className="text-2xl font-black text-green-500">₹{selectedActivity.details.amount?.toLocaleString()}</span>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Group</span>
+                                    <span className="text-sm font-bold text-gray-900 italic">{selectedActivity.details.groupName || 'No Group'}</span>
+                                </div>
+                            </div>
+
+                            {/* Same details as normal expense */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Original Date</span>
+                                    <span className="text-sm font-medium text-gray-700">
+                                        {selectedActivity.details.date ? format(selectedActivity.details.date, "MMM dd, yyyy") : "N/A"}
+                                    </span>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Created On</span>
+                                    <span className="text-sm font-medium text-gray-700">
+                                        {selectedActivity.createdAt ? format(selectedActivity.createdAt, "MMM dd, yyyy") : "N/A"}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Paid By</span>
+                                <span className="text-sm font-bold text-gray-900">{selectedActivity.details.paidBy === userName ? "You" : selectedActivity.details.paidBy}</span>
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Participants Involved</span>
+                                <div className="flex flex-wrap gap-2">
+                                    {selectedActivity.details.participants?.map(p => (
+                                        <span key={p} className="px-2 py-1 bg-gray-50 border border-gray-100 rounded-md text-xs font-bold text-gray-600">
+                                            {p}
+                                        </span>
+                                    ))}
                                 </div>
                             </div>
                         </div>

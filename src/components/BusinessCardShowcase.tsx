@@ -17,7 +17,7 @@ const BusinessCard = ({
             viewport={{ once: true }}
             transition={{ duration: 0.6, ease: "easeOut" }}
             className={cn(
-                "relative flex flex-col justify-between w-full aspect-[1.58/1] sm:max-w-md bg-[#FDFBF7] p-6 sm:p-8 shadow-2xl overflow-hidden",
+                "relative flex flex-col justify-between w-full max-w-[280px] sm:max-w-md aspect-[2/1] sm:aspect-[1.58/1] bg-[#FDFBF7] p-3 sm:p-6 md:p-8 shadow-2xl overflow-hidden",
                 "border border-stone-200",
                 className
             )}
@@ -55,8 +55,8 @@ export function BusinessCardShowcase() {
                 <div className="absolute inset-0 opacity-[0.05] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] mix-blend-multiply" />
             </div>
 
-            <div className="relative z-10 px-4 sm:px-8 py-8">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center justify-center">
+            <div className="relative z-10 px-4 sm:px-8 py-6 sm:py-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 items-center justify-items-center lg:justify-items-stretch">
 
                     {/* Card 1: Rahul Kumar (Left) */}
                     <BusinessCard className="hover:shadow-[0_40px_80px_-12px_rgba(0,0,0,0.2)] transition-shadow duration-500">
@@ -68,13 +68,13 @@ export function BusinessCardShowcase() {
                                         <path d="M12 2L2 19H22L12 2ZM12 5.8L18.5 17H5.5L12 5.8Z" />
                                     </svg>
                                 </div>
-                                <h3 className="font-serif text-3xl sm:text-4xl text-black font-medium tracking-tight mb-1">
+                                <h3 className="font-serif text-2xl sm:text-3xl md:text-4xl text-black font-medium tracking-tight mb-1">
                                     Rahul Kumar
                                 </h3>
-                                <p className="font-serif text-sm text-black/70 font-medium">Developer</p>
+                                <p className="font-serif text-xs sm:text-sm text-black/70 font-medium">Developer</p>
                             </div>
 
-                            <div className="flex justify-between items-end mt-12 sm:mt-0 font-mono text-[10px] sm:text-xs text-black/80 leading-tight">
+                            <div className="flex justify-between items-end mt-6 sm:mt-12 md:mt-0 font-mono text-[9px] sm:text-[10px] md:text-xs text-black/80 leading-tight">
                                 <div>
                                     <p>+91 98765 43210</p>
                                     <p>rahul@splitwayy.com</p>
@@ -99,8 +99,8 @@ export function BusinessCardShowcase() {
                                 </svg>
                             </div>
                             <div>
-                                <h3 className="font-serif text-4xl sm:text-5xl text-black leading-none mb-2">SplitWayy</h3>
-                                <p className="font-serif text-sm italic text-black/60">Seamless Expense Sharing</p>
+                                <h3 className="font-serif text-3xl sm:text-4xl md:text-5xl text-black leading-none mb-2">SplitWayy</h3>
+                                <p className="font-serif text-xs sm:text-sm italic text-black/60">Seamless Expense Sharing</p>
                             </div>
                         </div>
                         <div className="absolute bottom-8 text-[10px] font-mono text-black/40">
@@ -118,12 +118,12 @@ export function BusinessCardShowcase() {
                                     </svg>
                                     <span className="font-serif font-bold text-lg">SplitWayy Inc.</span>
                                 </div>
-                                <h3 className="font-serif text-2xl text-black leading-tight max-w-[80%]">
+                                <h3 className="font-serif text-lg sm:text-xl md:text-2xl text-black leading-tight max-w-[80%]">
                                     Simplify your shared finances today.
                                 </h3>
                             </div>
 
-                            <div className="flex justify-between items-end mt-12 sm:mt-0 font-mono text-[10px] sm:text-xs text-black/80 leading-tight">
+                            <div className="flex justify-between items-end mt-6 sm:mt-12 md:mt-0 font-mono text-[9px] sm:text-[10px] md:text-xs text-black/80 leading-tight">
                                 <div>
                                     <p>Connect</p>
                                     <p>Automate</p>
