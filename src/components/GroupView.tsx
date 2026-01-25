@@ -7,7 +7,6 @@ import {
     Wallet,
     UserCheck,
     Layout,
-    Home,
     Plane,
     Pencil,
     Trash2,
@@ -16,6 +15,7 @@ import {
     Receipt,
     LayoutList
 } from "lucide-react";
+import { GroupsIcon } from "@/components/ui/icons/groups-icon";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -318,7 +318,7 @@ export function GroupView({ userName }: { userName: string }) {
     }).sort((a, b) => b.value - a.value);
 
     const groupTypes = {
-        Home: { icon: Home, color: "text-blue-400", bg: "bg-blue-400/10" },
+        Home: { icon: GroupsIcon, color: "text-black", bg: "bg-white border-2 border-black" },
         Trip: { icon: Plane, color: "text-yellow-400", bg: "bg-yellow-400/10" },
         Couple: { icon: Heart, color: "text-red-400", bg: "bg-red-400/10" },
         Other: { icon: Layout, color: "text-gray-400", bg: "bg-gray-400/10" },

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Receipt, ArrowRight, Filter, Users, User as UserIcon, Banknote, HeartHandshake, Trash2, Edit } from "lucide-react";
 import CurrencyRupeeIcon from "@/components/ui/icons/currency-rupee-icon";
+import transactionIcon from "@/assets/images/transaction.svg";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { useExpenses, Expense } from "@/context/ExpenseContext";
 import { formatDistanceToNow, format } from "date-fns";
@@ -186,7 +187,7 @@ export function RecentActivity({ userName, user }: { userName: string; user: Use
                                                     ? "bg-[#32dd9e]/10 text-[#32dd9e]"
                                                     : "bg-gray-50 text-gray-500 group-hover:bg-black/5 group-hover:text-black"
                                             )}>
-                                                {expense.category === 'Payment' ? <HeartHandshake className="w-6 h-6" /> : <Receipt className="w-6 h-6" />}
+                                                {expense.category === 'Payment' ? <HeartHandshake className="w-6 h-6" /> : <img src={transactionIcon} className="w-6 h-6 opacity-50 group-hover:opacity-100 transition-opacity" alt="Transaction" />}
                                             </div>
                                             <div className="flex flex-col">
                                                 <span className="text-gray-900 font-bold uppercase text-sm tracking-tight group-hover:text-black transition-colors flex items-center gap-2">

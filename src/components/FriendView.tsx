@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 
 import { SettleUpModal } from "@/components/SettleUpModal";
+import friendsBg from "@/assets/images/friends.avif";
 
 interface FriendViewProps {
     friendName?: string;
@@ -180,11 +181,14 @@ export function FriendView({ friendName, userName }: FriendViewProps) {
 
             <div className="space-y-8 pb-20">
                 {/* Balance Card */}
-                <div className="bg-white border border-gray-100 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 flex flex-col items-center justify-center text-center gap-4 md:gap-6 shadow-2xl relative overflow-hidden">
+                <div className="bg-white border border-gray-100 rounded-[2rem] md:rounded-[3rem] p-6 md:p-12 flex flex-col items-center justify-center text-center gap-4 md:gap-6 shadow-2xl relative overflow-hidden bg-cover"
+                    style={{ backgroundImage: `url(${friendsBg})`, backgroundPosition: 'center center' }}>
+                    <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px]" />
+
                     <div className="flex flex-col gap-2 relative z-10 w-full">
-                        <span className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.3em] md:tracking-[0.5em] text-gray-400">Current Standing</span>
+                        <span className="text-[9px] md:text-[11px] font-black uppercase tracking-[0.3em] md:tracking-[0.5em] text-gray-900/60">Current Standing</span>
                         {balance === 0 ? (
-                            <h3 className="text-3xl md:text-6xl font-black text-gray-200 italic tracking-tighter drop-shadow-sm">
+                            <h3 className="text-3xl md:text-6xl font-black text-black italic tracking-tighter drop-shadow-sm">
                                 All settled up
                             </h3>
                         ) : (
@@ -201,7 +205,7 @@ export function FriendView({ friendName, userName }: FriendViewProps) {
                         )}
                     </div>
 
-                    <div className="w-full max-w-md h-[1px] bg-gradient-to-r from-transparent via-gray-200 to-transparent my-4 relative z-10" />
+                    <div className="w-full max-w-md h-[1px] bg-black/10 my-4 relative z-10" />
 
                     {balance !== 0 && (
                         <Button
@@ -216,12 +220,9 @@ export function FriendView({ friendName, userName }: FriendViewProps) {
                         </Button>
                     )}
 
-                    <p className="text-gray-300 text-[10px] font-black uppercase tracking-[0.3em] mt-4 italic flex items-center justify-center gap-1 relative z-10">
+                    <p className="text-gray-600 text-[10px] font-black uppercase tracking-[0.3em] mt-4 italic flex items-center justify-center gap-1 relative z-10">
                         {balance === 0 ? "Keep it this way!" : "Time to clear the dues"}
                     </p>
-
-                    {/* Subtle Grid Background Pattern */}
-                    <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:4rem_4rem]"></div>
                 </div>
 
                 {/* Friend's Transaction List */}
@@ -321,6 +322,6 @@ export function FriendView({ friendName, userName }: FriendViewProps) {
                 balance={balance}
                 userName={userName}
             />
-        </div>
+        </div >
     );
 }

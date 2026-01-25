@@ -27,6 +27,8 @@ declare global {
     }
 }
 
+import landScapeBg from "@/assets/images/LandScape.jpg";
+
 export function SettleUpModal({ isOpen, onClose, friendName, friendEmail, balance, userName, groupId }: SettleUpModalProps) {
     // Determine mode based on balance
     // If balance > 0 (They owe me), mode is 'take' (receiving money)
@@ -41,8 +43,25 @@ export function SettleUpModal({ isOpen, onClose, friendName, friendEmail, balanc
     const [notes, setNotes] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [qrImage, setQrImage] = useState<string | null>(null);
+    const [showUpiPayment, setShowUpiPayment] = useState(false);
+    const [upiId, setUpiId] = useState("");
 
     const { addExpense } = useExpenses();
+
+    const handleUpiPay = (app: string) => {
+        if (!upiId) {
+            toast.error("Please enter recipient's UPI ID");
+            return;
+        }
+        if (!upiId.includes('@')) {
+            toast.error("Invalid UPI ID format");
+            return;
+        }
+
+        const upiLink = `upi://pay?pa=${upiId}&pn=${friendName}&am=${amount}&cu=INR&tn=Settlement`;
+        window.open(upiLink, '_blank');
+        toast.info("Opening UPI app...");
+    };
 
     const handleQrUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -66,7 +85,7 @@ export function SettleUpModal({ isOpen, onClose, friendName, friendEmail, balanc
         setIsLoading(true);
 
         try {
-            await recordPayment(numAmount, "cash");
+            await recordPayment(numAmount, showUpiPayment ? "online" : "cash");
         } catch (error) {
             console.error(error);
             toast.error("Something went wrong");
@@ -139,25 +158,28 @@ export function SettleUpModal({ isOpen, onClose, friendName, friendEmail, balanc
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-md bg-white rounded-3xl overflow-hidden border-0 p-0 gap-0">
-                <DialogHeader className="bg-[#32dd9e] p-6 text-white pb-12 relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-20">
-                        {/* Decorative Icon */}
-                    </div>
-                    <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter z-10 text-center">
+            <DialogContent className="sm:max-w-md bg-white rounded-3xl overflow-hidden border-0 p-0 gap-0 shadow-2xl">
+                <DialogHeader
+                    className="bg-cover bg-center p-6 text-white pb-12 relative overflow-hidden h-48 flex flex-col justify-center items-center"
+                    style={{ backgroundImage: `url(${landScapeBg})` }}
+                >
+                    <div className="absolute inset-0 bg-[#32dd9e]/80 backdrop-blur-sm mix-blend-multiply transition-opacity duration-500" />
+                    <div className="absolute inset-0 bg-black/10" />
+
+                    <DialogTitle className="text-3xl font-black uppercase italic tracking-tighter z-10 text-center drop-shadow-md">
                         Settle Up
                     </DialogTitle>
                     {/* Visual Flow */}
-                    <div className="flex items-center justify-center gap-4 mt-6 z-10">
-                        <div className="flex flex-col items-center gap-1">
-                            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/30">
-                                <span className="font-bold text-white text-xs">{mode === "give" ? "YOU" : friendName.charAt(0)}</span>
+                    <div className="flex items-center justify-center gap-6 mt-6 z-10">
+                        <div className="flex flex-col items-center gap-2 group">
+                            <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md border border-white/40 shadow-xl group-hover:scale-110 transition-transform">
+                                <span className="font-black text-white text-sm">{mode === "give" ? "YOU" : friendName.charAt(0)}</span>
                             </div>
                         </div>
-                        <ArrowRight className="text-white/80 animate-pulse" />
-                        <div className="flex flex-col items-center gap-1">
-                            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm border border-white/30">
-                                <span className="font-bold text-white text-xs">{mode === "give" ? friendName.charAt(0) : "YOU"}</span>
+                        <ArrowRight className="text-white animate-pulse w-6 h-6" />
+                        <div className="flex flex-col items-center gap-2 group">
+                            <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md border border-white/40 shadow-xl group-hover:scale-110 transition-transform">
+                                <span className="font-black text-white text-sm">{mode === "give" ? friendName.charAt(0) : "YOU"}</span>
                             </div>
                         </div>
                     </div>
@@ -166,7 +188,7 @@ export function SettleUpModal({ isOpen, onClose, friendName, friendEmail, balanc
                     <div className="absolute bottom-0 left-0 w-full flex">
                         <div
                             className={cn(
-                                "flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors bg-white text-[#32dd9e]"
+                                "flex-1 py-3 text-xs font-black uppercase tracking-[0.2em] transition-colors bg-white/90 backdrop-blur text-[#32dd9e] shadow-lg text-center"
                             )}
                         >
                             {mode === "give" ? `Pay ${friendName}` : `Receive from ${friendName}`}
@@ -241,20 +263,83 @@ export function SettleUpModal({ isOpen, onClose, friendName, friendEmail, balanc
 
                     <div className="flex flex-col gap-3">
                         <div className="flex flex-col gap-2">
-                            <Button
-                                variant="outline"
-                                className="flex-1 h-12 rounded-xl border-gray-100 text-gray-500 hover:text-gray-900 hover:bg-gray-50 w-full"
-                                onClick={() => setDate(new Date())}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {format(date, "MMM dd, yyyy")}
-                            </Button>
-                            <Input
-                                value={notes}
-                                onChange={(e) => setNotes(e.target.value)}
-                                placeholder="Add notes (optional)..."
-                                className="h-12 rounded-xl border-gray-100 bg-gray-50/50"
-                            />
+                            {/* Payment Method Toggle for Payer */}
+                            {mode === "give" && (
+                                <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100/50 rounded-xl mb-2">
+                                    <button
+                                        onClick={() => setShowUpiPayment(false)}
+                                        className={cn(
+                                            "py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all",
+                                            !showUpiPayment ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-600"
+                                        )}
+                                    >
+                                        Cash / Manual
+                                    </button>
+                                    <button
+                                        onClick={() => setShowUpiPayment(true)}
+                                        className={cn(
+                                            "py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all",
+                                            showUpiPayment ? "bg-[#32dd9e] text-white shadow-sm" : "text-gray-400 hover:text-gray-600"
+                                        )}
+                                    >
+                                        Online / UPI
+                                    </button>
+                                </div>
+                            )}
+
+                            {showUpiPayment && mode === "give" ? (
+                                <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] font-bold uppercase tracking-wider text-gray-500 ml-1">
+                                            Recipient's UPI ID (VPA)
+                                        </Label>
+                                        <Input
+                                            placeholder="e.g. 9876543210@ybl"
+                                            className="h-11 rounded-xl border-gray-200 bg-gray-50"
+                                            value={upiId}
+                                            onChange={(e) => setUpiId(e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Button
+                                            variant="outline"
+                                            className="h-12 rounded-xl border-gray-200 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 font-bold transition-all"
+                                            onClick={() => handleUpiPay('phonepe')}
+                                        >
+                                            PhonePe
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            className="h-12 rounded-xl border-gray-200 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-600 font-bold transition-all"
+                                            onClick={() => handleUpiPay('gpay')}
+                                        >
+                                            GPay / UPI
+                                        </Button>
+                                    </div>
+
+                                    <div className="text-[10px] text-gray-400 text-center font-medium px-4">
+                                        Clicking above will open your UPI app. Once paid, click "Record Payment" below.
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-2">
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 h-12 rounded-xl border-gray-100 text-gray-500 hover:text-gray-900 hover:bg-gray-50 w-full"
+                                        onClick={() => setDate(new Date())}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {format(date, "MMM dd, yyyy")}
+                                    </Button>
+                                    <Input
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
+                                        placeholder="Add notes (optional)..."
+                                        className="h-12 rounded-xl border-gray-100 bg-gray-50/50"
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -265,7 +350,7 @@ export function SettleUpModal({ isOpen, onClose, friendName, friendEmail, balanc
                             className={`w-full text-white font-bold h-14 rounded-2xl shadow-[0_4px_0_rgba(0,0,0,0.2)] active:shadow-none active:translate-y-[4px] transition-all flex items-center justify-center gap-3 uppercase tracking-wider text-sm bg-[#32dd9e] hover:bg-[#2bc48a] shadow-[0_4px_0_#1a8c63]`}
                         >
                             <Banknote size={18} />
-                            Record Payment
+                            {showUpiPayment ? "I Have Paid (Record)" : "Record Payment"}
                         </Button>
                     </div>
                 </div>

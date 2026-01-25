@@ -16,6 +16,7 @@ import { useExpenses } from "@/context/ExpenseContext"
 import { CreateGroupModal } from "@/components/CreateGroupModal"
 import { AddExpenseModal } from "@/components/AddExpenseModal"
 import CurrencyRupeeIcon from "@/components/ui/icons/currency-rupee-icon"
+import { GroupsIcon } from "@/components/ui/icons/groups-icon"
 import { cn } from "@/lib/utils"
 import { auth } from "@/lib/firebase"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -248,7 +249,7 @@ export function AppSidebar({ forceExpanded, user, ...props }: AppSidebarProps) {
                         {!isCollapsed && (
                             <div className="flex items-center justify-between px-3 mb-2">
                                 <div className="flex items-center gap-2 text-gray-400">
-                                    <Layers className="w-3.5 h-3.5" />
+                                    <GroupsIcon className="w-5 h-5 text-gray-900" />
                                     <h3 className="text-xs font-bold uppercase tracking-wider">Groups</h3>
                                 </div>
                                 <CreateGroupModal>

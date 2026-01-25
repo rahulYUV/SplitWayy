@@ -10,6 +10,7 @@ import { addCommentToExpense, Comment } from "@/services/expenseService";
 import { subscribeToExpenseActivities, Activity } from "@/services/activityService";
 import { auth } from "@/lib/firebase"; // To get current user ID
 import { toast } from "sonner";
+import receiptBg from "@/assets/images/receiptbg.avif";
 // Actually AddExpenseModal usually handles 'mode="edit"'. 
 // I'll assume AddExpenseModal can accept 'expenseId' or 'initialData'. 
 // Previous analysis of AddExpenseModal showed it takes 'groupId'. 
@@ -85,17 +86,17 @@ export function ExpenseDetailsDialog({
 
     return (<>
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-md bg-white rounded-3xl p-0 overflow-hidden border-orange-100">
-                <div className="bg-[#ff6d2f] p-6 text-white relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -mr-10 -mt-10" />
+            <DialogContent className="sm:max-w-md bg-white rounded-[2.5rem] p-0 overflow-hidden border-4 border-stone-200/60 shadow-2xl">
+                <div className="p-6 text-black relative overflow-hidden bg-cover bg-center" style={{ backgroundImage: `url(${receiptBg})` }}>
+                    <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px]" />
                     <DialogHeader>
-                        <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter flex items-start justify-between gap-4 z-10">
+                        <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter flex items-start justify-between gap-4 z-10 text-black drop-shadow-sm">
                             {expense.description}
                             <div className="flex gap-2 mr-10">
                                 <Button
                                     variant="secondary"
                                     size="icon"
-                                    className="h-8 w-8 rounded-full bg-white/20 hover:bg-white/30 text-white border-0"
+                                    className="h-8 w-8 rounded-full bg-white text-black hover:bg-white/90 shadow-sm border-0"
                                     onClick={() => setIsEditing(true)}
                                 >
                                     <Edit className="h-4 w-4" />
@@ -103,16 +104,16 @@ export function ExpenseDetailsDialog({
                                 <Button
                                     variant="destructive"
                                     size="icon"
-                                    className="h-8 w-8 rounded-full bg-white/20 hover:bg-red-500 text-white border-0"
+                                    className="h-8 w-8 rounded-full bg-white text-red-500 hover:bg-white/90 shadow-sm border-0"
                                     onClick={handleDelete}
                                 >
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             </div>
                         </DialogTitle>
-                        <div className="text-4xl font-black mt-2 z-10">₹{expense.amount.toLocaleString()}</div>
-                        <div className="flex items-center gap-2 text-white/80 text-xs font-bold uppercase tracking-widest mt-2 z-10">
-                            <Calendar className="w-3 h-3" />
+                        <div className="text-4xl font-black mt-2 z-10 text-black drop-shadow-sm">₹{expense.amount.toLocaleString()}</div>
+                        <div className="flex items-center gap-2 text-black/80 text-xs font-bold uppercase tracking-widest mt-2 z-10">
+                            <Calendar className="w-3 h-3 text-black" />
                             {format(new Date(expense.date), "MMMM dd, yyyy")}
                         </div>
                     </DialogHeader>

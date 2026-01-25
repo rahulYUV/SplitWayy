@@ -29,6 +29,7 @@ import { auth } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 import { WaterRipple } from "@/components/WaterRipple";
 
+
 interface AccountSettingsProps {
     user: User | null;
 }
@@ -273,14 +274,11 @@ export function AccountSettings({ user }: AccountSettingsProps) {
     }
 
     return (
-        <div className="relative w-full font-sans min-h-screen bg-gray-50/30 pb-20">
+        <div className="relative w-full font-sans min-h-screen pb-20">
             <div className="relative z-10 w-full max-w-7xl mx-auto px-6 pt-4 space-y-6">
 
                 {/* --- HEADER MAT: Profile Section --- */}
-                <div className="relative bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 md:p-12 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 overflow-hidden ring-1 ring-white/50">
-                    {/* ... (keep existing decorative elements) ... */}
-                    <div className="absolute top-0 right-0 w-96 h-96 bg-blue-100/30 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 mix-blend-multiply" />
-                    <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-100/30 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 mix-blend-multiply" />
+                <div className="relative rounded-[2.5rem] p-8 md:p-12 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 overflow-hidden ring-1 ring-white/50 bg-white/60 backdrop-blur-xl">
 
                     <div className="relative z-10 flex flex-col md:flex-row items-center md:items-center gap-8 md:gap-12">
                         {/* Avatar Column */}
@@ -294,8 +292,11 @@ export function AccountSettings({ user }: AccountSettingsProps) {
                                     )}
                                     <WaterRipple
                                         image={profile?.photoURL || `https://ui-avatars.com/api/?name=${profile?.displayName || user?.displayName || 'User'}&background=0f172a&color=32dd9e&size=512`}
-                                        width={512}
-                                        height={512}
+                                        width={220}
+                                        height={220}
+                                        strength={30}
+                                        damping={0.98}
+                                        hoverRadius={8}
                                         className="w-full h-full object-cover"
                                     />
                                 </div>
@@ -521,7 +522,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
                 </div>
 
                 {/* --- Security & Data --- */}
-                <div className="bg-white rounded-[2rem] p-8 shadow-[0_2px_40px_-12px_rgba(0,0,0,0.05)] border border-gray-100 relative overflow-hidden">
+                <div className="bg-white/60 backdrop-blur-xl rounded-[2rem] p-8 shadow-[0_2px_40px_-12px_rgba(0,0,0,0.05)] border border-white/60 relative overflow-hidden ring-1 ring-white/50">
                     <div className="absolute top-0 right-0 p-32 bg-[#32dd9e] rounded-full blur-[120px] opacity-[0.03] pointer-events-none" />
 
                     <div className="flex items-center gap-3 mb-8 relative z-10">

@@ -22,6 +22,7 @@ import { RefundPolicy } from "@/pages/RefundPolicy";
 import { ContactUs } from "@/pages/ContactUs";
 import { ShippingPolicy } from "@/pages/ShippingPolicy";
 import { Toaster } from "@/components/ui/sonner";
+import { Spinner } from "@/components/ui/spinner";
 import { ExpenseProvider } from "@/context/ExpenseContext";
 import { QuickSplit } from "@/pages/QuickSplit";
 
@@ -86,8 +87,8 @@ function App() {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-white text-black">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-[#32dd9e] border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-400 font-bold tracking-widest uppercase text-xs">Loading SplitWayy...</p>
+          <Spinner className="w-12 h-12 text-black" />
+          <p className="text-black font-bold tracking-widest uppercase text-xs">Loading...</p>
         </div>
       </div>
     );

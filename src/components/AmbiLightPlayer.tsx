@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import userImage from "@/assets/images/user.webp";
 
 // Types for the component props
 interface AmbiLightPlayerProps {
@@ -76,38 +77,54 @@ export function AmbiLightPlayer({
                 </p>
             </div>
 
-            <div className="relative group">
-                {/* Glow Layer (AmbiLight Effect) */}
-                <div
-                    className="absolute inset-0 z-0 opacity-60"
-                    style={{
-                        filter: `blur(${blur})`,
-                        transform: `scale(${scale})`,
-                    }}
-                >
-                    <video
-                        ref={glowVideoRef}
-                        src={src}
-                        className="w-full aspect-video object-cover rounded-xl"
-                        muted
-                        loop
-                        autoPlay
-                        playsInline
-                        disablePictureInPicture
-                    />
+            <div className="flex flex-col md:flex-row gap-8 items-stretch">
+                {/* Left Side: Video (50%) */}
+                <div className="md:w-1/2 relative group">
+                    {/* Glow Layer (AmbiLight Effect) */}
+                    <div
+                        className="absolute inset-0 z-0 opacity-60"
+                        style={{
+                            filter: `blur(${blur})`,
+                            transform: `scale(${scale})`,
+                        }}
+                    >
+                        <video
+                            ref={glowVideoRef}
+                            src={src}
+                            className="w-full aspect-video object-cover rounded-xl"
+                            muted
+                            loop
+                            autoPlay
+                            playsInline
+                            disablePictureInPicture
+                        />
+                    </div>
+
+                    {/* Main Player */}
+                    <div className="relative z-10 rounded-xl overflow-hidden shadow-2xl bg-black border-2 border-[#ff6b35] ring-1 ring-[#ff6b35]/50 h-full">
+                        <video
+                            ref={mainVideoRef}
+                            src={src}
+                            className="w-full h-full object-cover block rounded-xl"
+                            muted
+                            loop
+                            autoPlay
+                            playsInline
+                        />
+                    </div>
                 </div>
 
-                {/* Main Player */}
-                <div className="relative z-10 rounded-xl overflow-hidden shadow-2xl bg-black border-2 border-[#ff6b35] ring-1 ring-[#ff6b35]/50">
-                    <video
-                        ref={mainVideoRef}
-                        src={src}
-                        className="w-full aspect-video object-cover block rounded-xl"
-                        muted
-                        loop
-                        autoPlay
-                        playsInline
+                {/* Right Side: Image and Text (50%) */}
+                <div className="md:w-1/2 flex flex-col items-center justify-center p-6 rounded-xl overflow-hidden shadow-2xl bg-orange-50/10 border-2 border-[#ff6b35] ring-1 ring-[#ff6b35]/50 backdrop-blur-sm">
+                    <img
+                        src={userImage}
+                        alt="Relaxing user"
+                        className="w-80 h-80 object-contain mb-6 drop-shadow-2xl"
                     />
+                    <h3 className="text-3xl font-black italic uppercase text-gray-900 mb-2">Relax & Unwind</h3>
+                    <p className="text-gray-500 text-center font-medium max-w-sm text-lg">
+                        Let SplitWayy handle the math while you enjoy your time with friends. Simplicity at its finest.
+                    </p>
                 </div>
             </div>
         </section>

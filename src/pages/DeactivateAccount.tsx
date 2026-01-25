@@ -57,10 +57,10 @@ export function DeactivateAccount() {
     };
 
     return (
-        <div className="w-full max-w-2xl mx-auto px-6 py-20 space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="w-full max-w-2xl mx-auto p-8 md:p-12 space-y-12 bg-white/60 backdrop-blur-xl border border-white/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-white/50 rounded-[2.5rem] relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-700 mt-8">
 
             {message && (
-                <div className={`fixed top-24 right-8 z-50 px-6 py-4 rounded-xl shadow-2xl border ${message.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'
+                <div className={`fixed top-24 right-8 z-50 px-6 py-4 rounded-xl shadow-2xl border ${message.type === 'success' ? 'bg-green-50/90 border-green-200 text-green-700 backdrop-blur-md' : 'bg-red-50/90 border-red-200 text-red-700 backdrop-blur-md'
                     } flex items-center gap-3 animate-in fade-in slide-in-from-right-4`}>
                     {message.type === 'success' ? <Check className="w-5 h-5" /> : <X className="w-5 h-5" />}
                     <span className="font-bold text-sm tracking-tight">{message.text}</span>
@@ -68,13 +68,15 @@ export function DeactivateAccount() {
                 </div>
             )}
 
-            <section className="space-y-6">
-                <div className="flex items-center gap-3 text-[#cc4b5b]">
-                    <AlertTriangle className="w-8 h-8" />
-                    <h1 className="text-4xl font-black text-gray-900 tracking-tighter italic">Deactivate your account</h1>
+            <section className="space-y-6 text-center">
+                <div className="flex items-center justify-center gap-3 text-[#cc4b5b]">
+                    <div className="p-3 bg-red-50 rounded-full">
+                        <AlertTriangle className="w-8 h-8" />
+                    </div>
                 </div>
+                <h1 className="text-4xl font-black text-gray-900 tracking-tighter">Deactivate your account</h1>
 
-                <div className="space-y-4 text-gray-600 font-medium leading-relaxed">
+                <div className="space-y-4 text-gray-600 font-medium leading-relaxed max-w-lg mx-auto">
                     <p>
                         If you deactivate your account, you will no longer be able to log in,
                         will appear as <span className="text-gray-900 font-black italic">"inactive"</span> on SplitWayy, and will not receive account notifications.
@@ -85,10 +87,10 @@ export function DeactivateAccount() {
                 </div>
             </section>
 
-            <div className="border-t border-gray-100 pt-8 space-y-6">
+            <div className="border-t border-gray-200/50 pt-8 space-y-6">
                 <div className="space-y-4">
-                    <Label className="text-sm font-black uppercase tracking-widest text-gray-500">
-                        Verify your identity to proceed:
+                    <Label className="text-xs font-black uppercase tracking-widest text-gray-500 ml-1">
+                        Verify your identity to proceed
                     </Label>
                     <Input
                         type="password"
@@ -96,31 +98,31 @@ export function DeactivateAccount() {
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter your current password"
                         disabled={loading}
-                        className="max-w-md h-12 border-gray-200 focus:ring-[#ff6b35]/20 focus:border-[#ff6b35] rounded-xl font-bold"
+                        className="h-12 border-white/50 bg-white/50 focus:bg-white focus:ring-0 focus:border-red-300 rounded-xl font-bold transition-all"
                     />
                 </div>
 
                 <Button
                     onClick={handleDeactivate}
                     disabled={loading}
-                    className="bg-[#cc4b5b] hover:bg-[#b0404e] text-white font-black py-6 px-8 rounded-xl shadow-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center gap-2 uppercase tracking-tighter text-sm"
+                    className="w-full bg-[#cc4b5b] hover:bg-[#b0404e] text-white font-black py-6 px-8 rounded-xl shadow-lg shadow-red-200/50 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 uppercase tracking-wide text-sm"
                 >
                     {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                    Deactivate your account
+                    Deactivate Account
                 </Button>
             </div>
 
-            <div className="space-y-6 bg-gray-50 p-8 rounded-2xl border border-gray-100">
+            <div className="space-y-6 bg-white/40 p-8 rounded-2xl border border-white/50 shadow-inner">
                 <p className="text-sm font-bold text-gray-600">
                     Or, deactivate your account by clicking on a link in your email:
                 </p>
-                <Button variant="outline" className="border-gray-300 font-bold hover:bg-white rounded-xl px-8 h-12">
-                    Send email
+                <Button variant="outline" className="w-full bg-white/50 border-white hover:bg-white font-bold rounded-xl h-12">
+                    Send email link
                 </Button>
             </div>
 
-            <section className="border-t border-gray-100 pt-10 space-y-6">
-                <h2 className="text-2xl font-black text-gray-900 tracking-tighter italic">Permanently delete your data</h2>
+            <section className="border-t border-gray-200/50 pt-10 space-y-6">
+                <h2 className="text-lg font-black text-gray-900 tracking-tight uppercase">Permanently delete your data</h2>
 
                 <div className="space-y-4 text-gray-500 font-medium text-sm leading-relaxed">
                     <p>
@@ -128,17 +130,15 @@ export function DeactivateAccount() {
                         personal data by sending a request to <span className="text-[#008cc9] cursor-pointer hover:underline">support@splitwayy.com</span>.
                         We will use your email address or phone number to confirm that request came from you.
                     </p>
-                    <p>
-                        Once data is deleted, it will not be retrievable. For more information on deletion, please see our <span className="text-[#008cc9] cursor-pointer hover:underline">Privacy Policy</span>.
-                    </p>
                 </div>
             </section>
 
-            <div className="pt-8 border-t border-gray-100">
-                <Link to="/account" className="text-[#008cc9] font-black uppercase tracking-widest text-xs hover:tracking-[0.1em] transition-all">
-                    ← Back to account settings
+            <div className="pt-4 border-t border-gray-200/50 flex justify-center">
+                <Link to="/account" className="text-[#008cc9] font-black uppercase tracking-widest text-xs hover:tracking-[0.2em] transition-all flex items-center gap-2 py-2">
+                    <span>←</span> Back to settings
                 </Link>
             </div>
         </div>
     );
+
 }
