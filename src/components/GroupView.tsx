@@ -178,7 +178,7 @@ export function GroupView({ userName }: { userName: string }) {
 
     // Dynamic Balance Calculation for this group
     const overview = expenses.reduce((acc, expense) => {
-        let efficientParticipants = [...expense.participants];
+        const efficientParticipants = [...expense.participants];
         // Handling Legacy "You"
         if (expense.paidBy === "You" && !efficientParticipants.includes("You")) {
             efficientParticipants.push("You");

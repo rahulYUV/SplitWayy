@@ -48,7 +48,7 @@ export function SettleUpModal({ isOpen, onClose, friendName, friendEmail, balanc
 
     const { addExpense } = useExpenses();
 
-    const handleUpiPay = (app: string) => {
+    const handleUpiPay = (_app: string) => {
         if (!upiId) {
             toast.error("Please enter recipient's UPI ID");
             return;

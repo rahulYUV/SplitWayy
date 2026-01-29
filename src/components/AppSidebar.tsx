@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { NavLink } from "react-router-dom"
-import { Plus, ArrowUpRight, ChevronDown, ChevronUp, LayoutDashboard, Activity, Users, Layers } from "lucide-react"
+import { Plus, ArrowUpRight, ChevronDown, ChevronUp, LayoutDashboard, Activity, Users } from "lucide-react"
 import {
     Sidebar,
     SidebarContent,

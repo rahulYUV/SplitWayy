@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { SignUpModal } from "@/components/SignUpModal";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { syncUserProfile } from "@/services/userService";
+import { syncUserProfile, UserProfile } from "@/services/userService";
 import { LandingPage } from "@/pages/LandingPage";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AccountSettings } from "@/pages/AccountSettings";
@@ -33,7 +33,7 @@ function App() {
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'signup' | 'login'>('signup');
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
@@ -62,7 +62,7 @@ function App() {
     const unsubStore = onSnapshot(userRef, (docSnap) => {
       const data = docSnap.data();
       if (!data) return;
-      setProfile(data);
+      setProfile(data as UserProfile);
 
       if (data.isDeactivated) {
         auth.signOut();

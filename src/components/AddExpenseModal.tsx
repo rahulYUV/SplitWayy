@@ -245,7 +245,7 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
                 toast.error("Expense limit exceeded! Max allowed is ₹10,00,000");
                 return;
             }
-            let finalParticipants = [...values.participants]
+            const finalParticipants = [...values.participants]
 
             if (values.splitMethod === "percentage") {
                 const totalPercent = finalParticipants.reduce((acc, name) => acc + (Number(values.splitDetails?.[name]) || 0), 0)
@@ -274,7 +274,7 @@ export function AddExpenseModal({ children, groupId, userName, defaultParticipan
             }
 
             // Auto-add pending manual participant if user forgot to click add
-            let currentManualEmails = { ...manualEmails };
+            const currentManualEmails = { ...manualEmails };
             if (manualName.trim()) {
                 const name = manualName.trim();
                 const email = manualEmail.trim();

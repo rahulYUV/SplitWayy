@@ -40,7 +40,7 @@ const useCanvasCursor = (containerId) => {
             }
         },
         update: function () {
-            var e = this.spring,
+            let e = this.spring,
                 t = this.nodes[0];
             t.vx += (pos.x - t.x) * e;
             t.vy += (pos.y - t.y) * e;
@@ -59,7 +59,7 @@ const useCanvasCursor = (containerId) => {
                     (e *= E.tension);
         },
         draw: function () {
-            var e,
+            let e,
                 t,
                 n = this.nodes[0].x,
                 i = this.nodes[0].y;
@@ -218,7 +218,7 @@ const useCanvasCursor = (containerId) => {
 
         // Initialize lines
         lines = [];
-        for (var i = 0; i < E.trails; i++)
+        for (let i = 0; i < E.trails; i++)
             lines.push(new Line({ spring: 0.4 + (i / E.trails) * 0.025 }));
 
         document.addEventListener('mousemove', c);
